@@ -35,30 +35,30 @@ To run this project locally, follow these steps:
 
 The dataset used in this project consists of historical data from CNC machines, including sensor readings, operational parameters, and maintenance logs. Below is a description of the main columns in the dataset:
 
-| Column           | Description                                                      |
-|------------------|------------------------------------------------------------------|
-| time             | Timestamp of the recorded data                                   |
-| V_avg_machine    | Average voltage of the machine                                   |
-| I_avg_machine    | Average current of the machine                                   |
-| kW_machine       | Active power consumption of the machine                          |
-| kvar_machine     | Reactive power consumption of the machine                        |
-| kVA_machine      | Apparent power consumption of the machine                        |
-| PF_machine       | Power factor of the machine                                      |
-| kWh_machine      | Energy consumption in kilowatt-hours                             |
-| kvarh_machine    | Reactive energy consumption in kilovolt-ampere reactive hours    |
-| kVAh_machine     | Apparent energy consumption in kilovolt-ampere hours             |
-| I_avg_spindle    | Average current of the spindle                                   |
-| kW_spindle       | Active power consumption of the spindle                          |
-| kvar_spindle     | Reactive power consumption of the spindle                        |
-| kVA_spindle      | Apparent power consumption of the spindle                        |
-| PF_spindle       | Power factor of the spindle                                      |
-| kWh_spindle      | Energy consumption of the spindle in kilowatt-hours              |
-| kvarh_spindle    | Reactive energy consumption of the spindle in kilovolt-ampere reactive hours |
-| kVAh_spindle     | Apparent energy consumption of the spindle in kilovolt-ampere hours |
-| RPM              | Rotational speed of the spindle in revolutions per minute        |
-| Anomaly          | Indicator if the data point is considered an anomaly (True/False)|
+| Column           | Description                                                                                     |
+|------------------|-------------------------------------------------------------------------------------------------|
+| **time**         | Timestamp indicating when the data was recorded.                                                |
+| **V_avg_machine**| The average voltage supplied to the CNC machine.                                                |
+| **I_avg_machine**| The average current drawn by the CNC machine.                                                   |
+| **kW_machine**   | Active power consumption of the CNC machine in kilowatts.                                       |
+| **kvar_machine** | Reactive power consumption of the CNC machine in kilovars.                                      |
+| **kVA_machine**  | Apparent power consumption of the CNC machine in kilovolt-amperes.                              |
+| **PF_machine**   | Power factor of the CNC machine, representing the efficiency of power usage.                    |
+| **kWh_machine**  | Total energy consumption of the CNC machine in kilowatt-hours.                                  |
+| **kvarh_machine**| Total reactive energy consumption of the CNC machine in kilovar-hours.                          |
+| **kVAh_machine** | Total apparent energy consumption of the CNC machine in kilovolt-ampere-hours.                  |
+| **V_avg_spindle**| The average voltage supplied to the spindle.                                                    |
+| **I_avg_spindle**| The average current drawn by the spindle.                                                       |
+| **kW_spindle**   | Active power consumption of the spindle in kilowatts.                                           |
+| **kvar_spindle** | Reactive power consumption of the spindle in kilovars.                                          |
+| **kVA_spindle**  | Apparent power consumption of the spindle in kilovolt-amperes.                                  |
+| **PF_spindle**   | Power factor of the spindle, indicating the efficiency of power usage.                          |
+| **kWh_spindle**  | Total energy consumption of the spindle in kilowatt-hours.                                      |
+| **kvarh_spindle**| Total reactive energy consumption of the spindle in kilovar-hours.                              |
+| **kVAh_spindle** | Total apparent energy consumption of the spindle in kilovolt-ampere-hours.                      |
+| **RPM**          | Rotational speed of the spindle in revolutions per minute.                                      |
+| **Anomaly**      | Boolean indicator signifying whether the data point is considered an anomaly (`True`/`False`).  |
 
-This dataset provides comprehensive operational data, which is essential for building and training machine learning models to predict maintenance needs and potential failures in CNC machines. The data undergoes preprocessing and cleaning to ensure quality and relevance before being used in the predictive maintenance system.
 
 ## Usage
 
