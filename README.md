@@ -6,6 +6,7 @@ This repository contains the code and data for a predictive maintenance system f
 
 - [Introduction](#introduction)
 - [Installation](#installation)
+- [Data](#data)
 - [Usage](#usage)
 - [Contributing](#contributing)
 - [License](#license)
@@ -29,6 +30,36 @@ To run this project locally, follow these steps:
     ```bash
     pip install -r requirements.txt
     ```
+
+## Data
+
+The dataset used in this project consists of historical data from CNC machines, including sensor readings, operational parameters, and maintenance logs. Below is a description of the main columns in the dataset:
+
+| Column           | Description                                                      |
+|------------------|------------------------------------------------------------------|
+| time             | Timestamp of the recorded data                                   |
+| V_avg_machine    | Average voltage of the machine                                   |
+| I_avg_machine    | Average current of the machine                                   |
+| kW_machine       | Active power consumption of the machine                          |
+| kvar_machine     | Reactive power consumption of the machine                        |
+| kVA_machine      | Apparent power consumption of the machine                        |
+| PF_machine       | Power factor of the machine                                      |
+| kWh_machine      | Energy consumption in kilowatt-hours                             |
+| kvarh_machine    | Reactive energy consumption in kilovolt-ampere reactive hours    |
+| kVAh_machine     | Apparent energy consumption in kilovolt-ampere hours             |
+| I_avg_spindle    | Average current of the spindle                                   |
+| kW_spindle       | Active power consumption of the spindle                          |
+| kvar_spindle     | Reactive power consumption of the spindle                        |
+| kVA_spindle      | Apparent power consumption of the spindle                        |
+| PF_spindle       | Power factor of the spindle                                      |
+| kWh_spindle      | Energy consumption of the spindle in kilowatt-hours              |
+| kvarh_spindle    | Reactive energy consumption of the spindle in kilovolt-ampere reactive hours |
+| kVAh_spindle     | Apparent energy consumption of the spindle in kilovolt-ampere hours |
+| RPM              | Rotational speed of the spindle in revolutions per minute        |
+| Anomaly          | Indicator if the data point is considered an anomaly (True/False)|
+
+This dataset provides comprehensive operational data, which is essential for building and training machine learning models to predict maintenance needs and potential failures in CNC machines. The data undergoes preprocessing and cleaning to ensure quality and relevance before being used in the predictive maintenance system.
+
 ## Usage
 
 ## Contributing
