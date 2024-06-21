@@ -59,8 +59,45 @@ The dataset used in this project consists of historical data from CNC machines, 
 | **RPM**          | Rotational speed of the spindle in revolutions per minute.                                      |
 | **Anomaly**      | Boolean indicator signifying whether the data point is considered an anomaly (`True`/`False`).  |
 
-
 ## Usage
+
+To utilize the predictive maintenance system, follow the steps below to run the main Jupyter Notebook (`main.ipynb`), which orchestrates the entire workflow from data preprocessing to model evaluation and visualization.
+
+1. Ensure that you have followed the installation instructions to set up your environment.
+
+2. Open the Jupyter Notebook:
+    ```bash
+    jupyter notebook main.ipynb
+    ```
+
+3. The `main.ipynb` notebook contains the code to preprocess data, train the model, evaluate its performance, and visualize the results. The main steps involved are:
+
+    - **Initialize**: This involves setting up the necessary parameters.
+    - **Preprocess**: This step involves cleaning and preparing the data for model training.
+    - **Train**: The selected machine learning model is trained using the preprocessed data.
+    - **Evaluate**: The trained model is evaluated to determine its accuracy and effectiveness in predicting failures.
+    - **Visualize**: The results of the model's predictions are visualized.
+
+4. **Available Models:**
+    The system supports several machine learning models for predictive maintenance. You can specify the desired model using the `args.model` parameter. The available models are:
+
+    - `logistic_regression`: Logistic Regression
+    - `knn`: K-Nearest Neighbors
+    - `svm`: Support Vector Machine
+    - `decision_tree`: Decision Tree Classifier
+    - `random_forest`: Random Forest Classifier
+    - `naive_bayes`: Gaussian Naive Bayes
+    - `neural_network`: Multi-Layer Perceptron (Neural Network)
+
+5. **Explanation of Parameters:**
+    - `file_path`: Path to the dataset file.
+    - `model`: The machine learning model to be used for prediction.
+    - `future_steps`: Number of future steps to predict.
+    - `window_size`: Size of the sliding window for feature extraction.
+    - `test_size`: Proportion of the dataset to include in the test split.
+    - `seed`: Random seed for reproducibility.
+
+6. Run each cell in the notebook sequentially to execute the steps in the workflow. The notebook will guide you through the data preprocessing, model training, evaluation, and visualization processes.
 
 ## Contributing
 
