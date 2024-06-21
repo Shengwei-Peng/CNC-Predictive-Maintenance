@@ -7,7 +7,13 @@ from tqdm import tqdm
 from typing import Tuple, List
 from types import SimpleNamespace
 from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.svm import SVC
+from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import classification_report, confusion_matrix, roc_curve, auc, precision_recall_curve
 from imblearn.over_sampling import SMOTE
 
@@ -32,16 +38,27 @@ class CNC():
         self.y_train = y_train
         self.x_test = x_test
         self.y_test = y_test
-        print(f"X_train shape: {self.x_train.shape}")
-        print(f"X_test shape: {self.x_test.shape}")
-        for i in range(self.args.future_steps):
-            print(f"y_train[{i}] shape: {self.y_train[i].shape}")
-            print(f"y_test[{i}] shape: {self.y_test[i].shape}")
     
     def train(self):
-        self.models: List[RandomForestClassifier] = []
+        self.models = []
         for i in  tqdm(range(self.args.future_steps), desc="Training models"):
-            model = RandomForestClassifier(random_state=self.args.seed)
+            if self.args.model == "logistic_regression":
+                model = LogisticRegression(random_state=self.args.seed)
+            elif self.args.model == "knn":
+                model = KNeighborsClassifier()
+            elif self.args.model == "svm":
+                model = SVC(random_state=self.args.seed)
+            elif self.args.model == "decision_tree":
+                model = DecisionTreeClassifier(random_state=self.args.seed)
+            elif self.args.model == "random_forest":
+                model = RandomForestClassifier(random_state=self.args.seed)
+            elif self.args.model == "naive_bayes":
+                model = GaussianNB()
+            elif self.args.model == "neural_network":
+                model = MLPClassifier(random_state=self.args.seed)
+            else:
+                raise ValueError(f"Unknown model type: {self.args.model}")
+
             model.fit(self.x_train, self.y_train[i])
             self.models.append(model)
     
@@ -60,16 +77,16 @@ class CNC():
     def visualize(self):
         for i in range(self.args.future_steps):
             cm = confusion_matrix(self.y_test[i], self.y_preds[i])
-            plt.figure(figsize=(6, 5))
-            sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+            plt.figure(figsize=(8, 6))
+            sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', cbar=True, xticklabels=['Non-Anomaly', 'Anomaly'], yticklabels=['Non-Anomaly', 'Anomaly'])
             plt.xlabel('Predicted')
             plt.ylabel('Actual')
             plt.title(f'Confusion Matrix - Future step {i+1}')
-            
+
             fpr, tpr, _ = roc_curve(self.y_test[i], self.y_probas[i])
             roc_auc = auc(fpr, tpr)
-            plt.figure()
-            plt.plot(fpr, tpr, color='darkorange', lw=2, label='ROC curve (area = %0.2f)' % roc_auc)
+            plt.figure(figsize=(8, 6))
+            plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (area = {roc_auc:.2f})')
             plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
             plt.xlim([0.0, 1.0])
             plt.ylim([0.0, 1.05])
@@ -79,12 +96,21 @@ class CNC():
             plt.legend(loc="lower right")
 
             precision, recall, _ = precision_recall_curve(self.y_test[i], self.y_probas[i])
-            plt.figure()
-            plt.plot(recall, precision, color='blue', lw=2)
+            plt.figure(figsize=(8, 6))
+            plt.plot(recall, precision, color='blue', lw=2, label='Precision-Recall curve')
             plt.xlabel('Recall')
             plt.ylabel('Precision')
-            plt.title(f'Precision-Recall Curve - Future step {i+1}')
-            
+            plt.title(f'Precision-Recall curve - Future step {i+1}')
+            plt.legend(loc="lower left")
+            plt.show()
+
+            plt.figure(figsize=(8, 6))
+            sns.histplot(self.y_probas[i], kde=True, color='green')
+            plt.title(f'Distribution of Prediction Probabilities - Future step {i+1}')
+            plt.xlabel('Prediction Probability')
+            plt.ylabel('Frequency')
+            plt.show()
+
         plt.show()
 
     def oversample_data(self, data: pd.DataFrame) -> pd.DataFrame:
