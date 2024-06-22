@@ -22,46 +22,33 @@ class CNC():
         self.args = args
         random.seed(self.args.seed)
         np.random.seed(self.args.seed)
-    
+        self.model_map = {
+            "logistic_regression": LogisticRegression(random_state=self.args.seed),
+            "knn": KNeighborsClassifier(),
+            "svm": SVC(probability=True, random_state=self.args.seed),
+            "decision_tree": DecisionTreeClassifier(random_state=self.args.seed),
+            "random_forest": RandomForestClassifier(random_state=self.args.seed),
+            "naive_bayes": GaussianNB(),
+            "neural_network": MLPClassifier(random_state=self.args.seed)
+        }
+
     def pre_process(self):
         data = pd.read_csv(self.args.file_path)
         data['time'] = pd.to_datetime(data['time'])
         data['time'] = data['time'].astype(int) // 10**9
         self.data = self.oversample_data(data)
         x, y = self.create_rolling_features()
-        y_list: List[np.ndarray] = [y[:, i] for i in range(self.args.future_steps)]
-        x_train, x_test, *y_splits = train_test_split(x, *y_list, test_size=self.args.test_size, random_state=self.args.seed)
-        y_train = [y_splits[i] for i in range(0, len(y_splits), 2)]
-        y_test = [y_splits[i] for i in range(1, len(y_splits), 2)]
+        self.split_data(x, y)
 
-        self.x_train = x_train
-        self.y_train = y_train
-        self.x_test = x_test
-        self.y_test = y_test
-    
     def train(self):
         self.models = []
         for i in  tqdm(range(self.args.future_steps), desc="Training models"):
-            if self.args.model == "logistic_regression":
-                model = LogisticRegression(random_state=self.args.seed)
-            elif self.args.model == "knn":
-                model = KNeighborsClassifier()
-            elif self.args.model == "svm":
-                model = SVC(random_state=self.args.seed)
-            elif self.args.model == "decision_tree":
-                model = DecisionTreeClassifier(random_state=self.args.seed)
-            elif self.args.model == "random_forest":
-                model = RandomForestClassifier(random_state=self.args.seed)
-            elif self.args.model == "naive_bayes":
-                model = GaussianNB()
-            elif self.args.model == "neural_network":
-                model = MLPClassifier(random_state=self.args.seed)
-            else:
+            model = self.model_map.get(self.args.model)
+            if model is None:
                 raise ValueError(f"Unknown model type: {self.args.model}")
-
             model.fit(self.x_train, self.y_train[i])
             self.models.append(model)
-    
+
     def evaluate(self):
         self.y_preds = []
         self.y_probas = []
@@ -73,44 +60,12 @@ class CNC():
             report = classification_report(self.y_test[i], y_pred)
             print(f"Report - Future step {i+1}:")
             print(report)
-    
+
     def visualize(self):
         for i in range(self.args.future_steps):
-            cm = confusion_matrix(self.y_test[i], self.y_preds[i])
-            plt.figure(figsize=(8, 6))
-            sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', cbar=True, xticklabels=['Non-Anomaly', 'Anomaly'], yticklabels=['Non-Anomaly', 'Anomaly'])
-            plt.xlabel('Predicted')
-            plt.ylabel('Actual')
-            plt.title(f'Confusion Matrix - Future step {i+1}')
-
-            fpr, tpr, _ = roc_curve(self.y_test[i], self.y_probas[i])
-            roc_auc = auc(fpr, tpr)
-            plt.figure(figsize=(8, 6))
-            plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (area = {roc_auc:.2f})')
-            plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
-            plt.xlim([0.0, 1.0])
-            plt.ylim([0.0, 1.05])
-            plt.xlabel('False Positive Rate')
-            plt.ylabel('True Positive Rate')
-            plt.title(f'Receiver Operating Characteristic - Future step {i+1}')
-            plt.legend(loc="lower right")
-
-            precision, recall, _ = precision_recall_curve(self.y_test[i], self.y_probas[i])
-            plt.figure(figsize=(8, 6))
-            plt.plot(recall, precision, color='blue', lw=2, label='Precision-Recall curve')
-            plt.xlabel('Recall')
-            plt.ylabel('Precision')
-            plt.title(f'Precision-Recall curve - Future step {i+1}')
-            plt.legend(loc="lower left")
-            plt.show()
-
-            plt.figure(figsize=(8, 6))
-            sns.histplot(self.y_probas[i], kde=True, color='green')
-            plt.title(f'Distribution of Prediction Probabilities - Future step {i+1}')
-            plt.xlabel('Prediction Probability')
-            plt.ylabel('Frequency')
-            plt.show()
-
+            self.plot_confusion_matrix(i)
+            self.plot_roc_curve(i)
+            self.plot_precision_recall_curve(i)
         plt.show()
 
     def oversample_data(self, data: pd.DataFrame) -> pd.DataFrame:
@@ -129,3 +84,39 @@ class CNC():
             x.append(features)
             y.append(labels)
         return np.array(x), np.array(y)
+
+    def split_data(self, x: np.ndarray, y: np.ndarray):
+        y_list: List[np.ndarray] = [y[:, i] for i in range(self.args.future_steps)]
+        self.x_train, self.x_test, *y_splits = train_test_split(x, *y_list, test_size=self.args.test_size, random_state=self.args.seed)
+        self.y_train = [y_splits[i] for i in range(0, len(y_splits), 2)]
+        self.y_test = [y_splits[i] for i in range(1, len(y_splits), 2)]
+
+    def plot_confusion_matrix(self, i: int):
+        cm = confusion_matrix(self.y_test[i], self.y_preds[i])
+        plt.figure(figsize=(8, 6))
+        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', cbar=True, xticklabels=['Non-Anomaly', 'Anomaly'], yticklabels=['Non-Anomaly', 'Anomaly'])
+        plt.xlabel('Predicted')
+        plt.ylabel('Actual')
+        plt.title(f'Confusion Matrix - Future step {i+1}')
+
+    def plot_roc_curve(self, i: int):
+        fpr, tpr, _ = roc_curve(self.y_test[i], self.y_probas[i])
+        roc_auc = auc(fpr, tpr)
+        plt.figure(figsize=(8, 6))
+        plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (area = {roc_auc:.2f})')
+        plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+        plt.xlim([0.0, 1.0])
+        plt.ylim([0.0, 1.05])
+        plt.xlabel('False Positive Rate')
+        plt.ylabel('True Positive Rate')
+        plt.title(f'Receiver Operating Characteristic - Future step {i+1}')
+        plt.legend(loc="lower right")
+    
+    def plot_precision_recall_curve(self, i: int):
+        precision, recall, _ = precision_recall_curve(self.y_test[i], self.y_probas[i])
+        plt.figure(figsize=(8, 6))
+        plt.plot(recall, precision, color='blue', lw=2, label='Precision-Recall curve')
+        plt.xlabel('Recall')
+        plt.ylabel('Precision')
+        plt.title(f'Precision-Recall curve - Future step {i+1}')
+        plt.legend(loc="lower left")
