@@ -7,7 +7,6 @@ from tqdm import tqdm
 from typing import Tuple, List
 from types import SimpleNamespace
 from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
@@ -15,7 +14,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import classification_report, confusion_matrix, roc_curve, auc, precision_recall_curve
-from imblearn.over_sampling import SMOTE
+
 
 class CNC():
     def __init__(self, args: SimpleNamespace):
@@ -23,22 +22,20 @@ class CNC():
         random.seed(self.args.seed)
         np.random.seed(self.args.seed)
         self.model_map = {
-            "logistic_regression": LogisticRegression(random_state=self.args.seed),
+            "naive_bayes": GaussianNB(),
             "knn": KNeighborsClassifier(),
-            "svm": SVC(probability=True, random_state=self.args.seed),
             "decision_tree": DecisionTreeClassifier(random_state=self.args.seed),
             "random_forest": RandomForestClassifier(random_state=self.args.seed),
-            "naive_bayes": GaussianNB(),
-            "neural_network": MLPClassifier(random_state=self.args.seed)
+            "svm": SVC(probability=True, random_state=self.args.seed),
+            "mlp": MLPClassifier(random_state=self.args.seed)
         }
 
     def pre_process(self):
-        data = pd.read_csv(self.args.file_path)
-        data['time'] = pd.to_datetime(data['time'])
-        data['time'] = data['time'].astype(int) // 10**9
-        self.data = self.oversample_data(data)
-        x, y = self.create_rolling_features()
-        self.split_data(x, y)
+        self.data = pd.read_csv(self.args.file_path)
+        self.data['time'] = pd.to_datetime(self.data['time'])
+        self.data['time'] = self.data['time'].astype(int) // 10**9
+        x, y = self._create_rolling_features()
+        self._split_data(x, y)
 
     def train(self):
         self.models = []
@@ -63,20 +60,13 @@ class CNC():
 
     def visualize(self):
         for i in range(self.args.future_steps):
-            self.plot_confusion_matrix(i)
-            self.plot_roc_curve(i)
-            self.plot_precision_recall_curve(i)
+            self._plot_confusion_matrix(i)
+            self._plot_roc_curve(i)
+            self._plot_precision_recall_curve(i)
+            self._plot_recall_vs_threshold(i)
         plt.show()
-
-    def oversample_data(self, data: pd.DataFrame) -> pd.DataFrame:
-        smote = SMOTE(random_state=self.args.seed)
-        features = data.drop(columns=['Anomaly'])
-        labels = data['Anomaly']
-        features_resampled, labels_resampled = smote.fit_resample(features, labels)
-        data_resampled = pd.concat([pd.DataFrame(features_resampled), pd.DataFrame(labels_resampled, columns=['Anomaly'])], axis=1)
-        return data_resampled
-
-    def create_rolling_features(self) -> Tuple[np.ndarray, np.ndarray]:
+    
+    def _create_rolling_features(self) -> Tuple[np.ndarray, np.ndarray]:
         x, y = [], []
         for i in tqdm(range(len(self.data) - self.args.window_size - self.args.future_steps + 1), desc="Creating rolling window features"):
             features = self.data.iloc[i:i + self.args.window_size].drop(columns=['Anomaly']).values.flatten()
@@ -85,21 +75,24 @@ class CNC():
             y.append(labels)
         return np.array(x), np.array(y)
 
-    def split_data(self, x: np.ndarray, y: np.ndarray):
+    def _split_data(self, x: np.ndarray, y: np.ndarray):
         y_list: List[np.ndarray] = [y[:, i] for i in range(self.args.future_steps)]
         self.x_train, self.x_test, *y_splits = train_test_split(x, *y_list, test_size=self.args.test_size, random_state=self.args.seed)
         self.y_train = [y_splits[i] for i in range(0, len(y_splits), 2)]
         self.y_test = [y_splits[i] for i in range(1, len(y_splits), 2)]
 
-    def plot_confusion_matrix(self, i: int):
+    def _plot_confusion_matrix(self, i: int):
         cm = confusion_matrix(self.y_test[i], self.y_preds[i])
         plt.figure(figsize=(8, 6))
         sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', cbar=True, xticklabels=['Non-Anomaly', 'Anomaly'], yticklabels=['Non-Anomaly', 'Anomaly'])
-        plt.xlabel('Predicted')
-        plt.ylabel('Actual')
-        plt.title(f'Confusion Matrix - Future step {i+1}')
+        plt.xlabel('Predicted', fontsize=14)
+        plt.ylabel('Actual', fontsize=14)
+        plt.title(f'Confusion Matrix - Future step {i+1}', fontsize=16)
+        plt.xticks(fontsize=12)
+        plt.yticks(fontsize=12)
+        plt.tight_layout()
 
-    def plot_roc_curve(self, i: int):
+    def _plot_roc_curve(self, i: int):
         fpr, tpr, _ = roc_curve(self.y_test[i], self.y_probas[i])
         roc_auc = auc(fpr, tpr)
         plt.figure(figsize=(8, 6))
@@ -107,16 +100,37 @@ class CNC():
         plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
         plt.xlim([0.0, 1.0])
         plt.ylim([0.0, 1.05])
-        plt.xlabel('False Positive Rate')
-        plt.ylabel('True Positive Rate')
-        plt.title(f'Receiver Operating Characteristic - Future step {i+1}')
-        plt.legend(loc="lower right")
-    
-    def plot_precision_recall_curve(self, i: int):
+        plt.xlabel('False Positive Rate', fontsize=14)
+        plt.ylabel('True Positive Rate', fontsize=14)
+        plt.title(f'Receiver Operating Characteristic - Future step {i+1}', fontsize=16)
+        plt.legend(loc="lower right", fontsize=12)
+        plt.xticks(fontsize=12)
+        plt.yticks(fontsize=12)
+        plt.grid(True)
+        plt.tight_layout()
+
+    def _plot_precision_recall_curve(self, i: int):
         precision, recall, _ = precision_recall_curve(self.y_test[i], self.y_probas[i])
         plt.figure(figsize=(8, 6))
         plt.plot(recall, precision, color='blue', lw=2, label='Precision-Recall curve')
-        plt.xlabel('Recall')
-        plt.ylabel('Precision')
-        plt.title(f'Precision-Recall curve - Future step {i+1}')
-        plt.legend(loc="lower left")
+        plt.xlabel('Recall', fontsize=14)
+        plt.ylabel('Precision', fontsize=14)
+        plt.title(f'Precision-Recall curve - Future step {i+1}', fontsize=16)
+        plt.legend(loc="lower left", fontsize=12)
+        plt.xticks(fontsize=12)
+        plt.yticks(fontsize=12)
+        plt.grid(True)
+        plt.tight_layout()
+    
+    def _plot_recall_vs_threshold(self, i: int):
+        _, recall, thresholds = precision_recall_curve(self.y_test[i], self.y_probas[i])
+        plt.figure(figsize=(8, 6))
+        plt.plot(thresholds, recall[:-1], "b--", label="Recall")
+        plt.xlabel('Threshold', fontsize=14)
+        plt.ylabel('Recall', fontsize=14)
+        plt.title(f'Recall vs Threshold - Future step {i+1}', fontsize=16)
+        plt.legend(loc="lower left", fontsize=12)
+        plt.xticks(fontsize=12)
+        plt.yticks(fontsize=12)
+        plt.grid(True)
+        plt.tight_layout()

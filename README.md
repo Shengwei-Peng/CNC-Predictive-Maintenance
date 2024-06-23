@@ -81,13 +81,12 @@ To utilize the predictive maintenance system, follow the steps below to run the 
 4. **Available Models:**
     The system supports several machine learning models for predictive maintenance. You can specify the desired model using the `args.model` parameter. The available models are:
 
-    - `logistic_regression`: Logistic Regression
+    - `naive_bayes`: Gaussian Naive Bayes
     - `knn`: K-Nearest Neighbors
-    - `svm`: Support Vector Machine
     - `decision_tree`: Decision Tree Classifier
     - `random_forest`: Random Forest Classifier
-    - `naive_bayes`: Gaussian Naive Bayes
-    - `neural_network`: Multi-Layer Perceptron (Neural Network)
+    - `svm`: Support Vector Machine
+    - `mlp`: Multi-Layer Perceptron
 
 5. **Explanation of Parameters:**
     - `file_path`: Path to the dataset file.
