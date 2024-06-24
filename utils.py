@@ -14,7 +14,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import classification_report, confusion_matrix, roc_curve, auc, precision_recall_curve
-
+from imblearn.over_sampling import SMOTE
 
 class CNC():
     def __init__(self, args: SimpleNamespace):
@@ -22,12 +22,12 @@ class CNC():
         random.seed(self.args.seed)
         np.random.seed(self.args.seed)
         self.model_map = {
-            "naive_bayes": GaussianNB(),
-            "knn": KNeighborsClassifier(),
-            "decision_tree": DecisionTreeClassifier(random_state=self.args.seed),
-            "random_forest": RandomForestClassifier(random_state=self.args.seed),
-            "svm": SVC(probability=True, random_state=self.args.seed),
-            "mlp": MLPClassifier(random_state=self.args.seed)
+            "NB": GaussianNB(),
+            "KNN": KNeighborsClassifier(),
+            "DT": DecisionTreeClassifier(random_state=self.args.seed),
+            "RF": RandomForestClassifier(random_state=self.args.seed),
+            "SVM": SVC(probability=True, random_state=self.args.seed),
+            "MLP": MLPClassifier(random_state=self.args.seed),
         }
 
     def pre_process(self):
@@ -39,19 +39,22 @@ class CNC():
 
     def train(self):
         self.models = []
-        for i in  tqdm(range(self.args.future_steps), desc="Training models"):
+        for i in tqdm(range(self.args.future_steps), desc="Training models"):
             model = self.model_map.get(self.args.model)
+            x, y = self.x_train, self.y_train[i]
             if model is None:
                 raise ValueError(f"Unknown model type: {self.args.model}")
-            model.fit(self.x_train, self.y_train[i])
+            if self.args.over_sampling:
+                x, y = self._over_sampling(x, y)
+            model.fit(x, y)
             self.models.append(model)
 
     def evaluate(self):
         self.y_preds = []
         self.y_probas = []
         for i in range(self.args.future_steps):
-            y_pred = self.models[i].predict(self.x_test)
             y_proba = self.models[i].predict_proba(self.x_test)[:, 1]
+            y_pred = (y_proba >= self.args.threshold).astype(int)
             self.y_preds.append(y_pred)
             self.y_probas.append(y_proba)
             report = classification_report(self.y_test[i], y_pred)
@@ -65,7 +68,7 @@ class CNC():
             self._plot_precision_recall_curve(i)
             self._plot_recall_vs_threshold(i)
         plt.show()
-    
+
     def _create_rolling_features(self) -> Tuple[np.ndarray, np.ndarray]:
         x, y = [], []
         for i in tqdm(range(len(self.data) - self.args.window_size - self.args.future_steps + 1), desc="Creating rolling window features"):
@@ -74,6 +77,11 @@ class CNC():
             x.append(features)
             y.append(labels)
         return np.array(x), np.array(y)
+
+    def _over_sampling(self, x: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        smote = SMOTE(random_state=self.args.seed)
+        x_resampled, y_resampled = smote.fit_resample(x, y)
+        return x_resampled, y_resampled
 
     def _split_data(self, x: np.ndarray, y: np.ndarray):
         y_list: List[np.ndarray] = [y[:, i] for i in range(self.args.future_steps)]
@@ -121,7 +129,7 @@ class CNC():
         plt.yticks(fontsize=12)
         plt.grid(True)
         plt.tight_layout()
-    
+
     def _plot_recall_vs_threshold(self, i: int):
         _, recall, thresholds = precision_recall_curve(self.y_test[i], self.y_probas[i])
         plt.figure(figsize=(8, 6))

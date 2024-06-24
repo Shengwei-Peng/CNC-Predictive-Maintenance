@@ -78,7 +78,7 @@ To utilize the predictive maintenance system, follow the steps below to run the 
     - **Evaluate**: The trained model is evaluated to determine its accuracy and effectiveness in predicting failures.
     - **Visualize**: The results of the model's predictions are visualized.
 
-4. **Available Models:**
+4. **Models:**
     The system supports several machine learning models for predictive maintenance. You can specify the desired model using the `args.model` parameter. The available models are:
 
     - `NB`: Gaussian Naive Bayes
@@ -88,14 +88,32 @@ To utilize the predictive maintenance system, follow the steps below to run the 
     - `SVM`: Support Vector Machine
     - `MLP`: Multi-Layer Perceptron
 
-5. **Explanation of Parameters:**
-    - `file_path`: Path to the dataset file.
-    - `model`: The machine learning model to be used for prediction.
-    - `future_steps`: Number of future steps to predict.
-    - `window_size`: Size of the sliding window for feature extraction.
-    - `test_size`: Proportion of the dataset to include in the test split.
-    - `seed`: Random seed for reproducibility.
+5. **Arguments:**
+    The arguments for running the system are defined as follows:
+    - `file_path` (str): Path to the dataset file.
+    - `model` (str): The machine learning model to be used for prediction.
+    - `over_sampling` (bool): Whether to apply over-sampling to balance the dataset.
+    - `future_steps` (int): Number of future steps to predict.
+    - `window_size` (int): Size of the sliding window for feature extraction.
+    - `test_size` (int): Number of samples to include in the test split.
+    - `seed` (int): Random seed for reproducibility.
+    - `threshold` (float): Threshold value for converting the predicted probabilities  into class labels.
 
+    Example of setting up parameters using `SimpleNamespace`:
+    ```python
+    from types import SimpleNamespace
+
+    args = SimpleNamespace(
+        file_path = "./data/data.csv",
+        model = "NB",
+        over_sampling = False,
+        future_steps = 1,
+        window_size = 3,
+        test_size = 200,
+        threshold = 0.5,
+        seed = 0,
+    )
+    ```
 6. Run each cell in the notebook sequentially to execute the steps in the workflow. The notebook will guide you through the data preprocessing, model training, evaluation, and visualization processes.
 
 ## Contributing
