@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from typing import Tuple, List
 from types import SimpleNamespace
+from imblearn.over_sampling import SMOTE
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
@@ -13,8 +14,16 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.neural_network import MLPClassifier
-from sklearn.metrics import classification_report, confusion_matrix, roc_curve, auc, precision_recall_curve
-from imblearn.over_sampling import SMOTE
+from sklearn.metrics import (
+    make_scorer,
+    recall_score,
+    precision_score,
+    confusion_matrix,
+    classification_report,
+    RocCurveDisplay,
+    PrecisionRecallDisplay,
+)
+
 
 class CNC():
     def __init__(self, args: SimpleNamespace):
@@ -22,12 +31,30 @@ class CNC():
         random.seed(self.args.seed)
         np.random.seed(self.args.seed)
         self.model_map = {
-            "NB": GaussianNB(),
-            "KNN": KNeighborsClassifier(),
-            "DT": DecisionTreeClassifier(random_state=self.args.seed),
-            "RF": RandomForestClassifier(random_state=self.args.seed),
-            "SVM": SVC(probability=True, random_state=self.args.seed),
-            "MLP": MLPClassifier(random_state=self.args.seed),
+            "NB": {
+                "name": "Gaussian Naive Bayes",
+                "model": GaussianNB()
+            },
+            "KNN": {
+                "name": "K-Nearest Neighbors",
+                "model": KNeighborsClassifier()
+            },
+            "DT": {
+                "name": "Decision Tree",
+                "model": DecisionTreeClassifier(random_state=self.args.seed)
+            },
+            "RF": {
+                "name": "Random Forest",
+                "model": RandomForestClassifier(random_state=self.args.seed)
+            },
+            "SVM": {
+                "name": "Support Vector Machine",
+                "model": SVC(probability=True, random_state=self.args.seed)
+            },
+            "MLP": {
+                "name": "Multi-Layer Perceptron",
+                "model": MLPClassifier(random_state=self.args.seed)
+            }
         }
 
     def pre_process(self):
@@ -40,7 +67,7 @@ class CNC():
     def train(self):
         self.models = []
         for i in tqdm(range(self.args.future_steps), desc="Training models"):
-            model = self.model_map.get(self.args.model)
+            model = self.model_map[self.args.model]["model"]
             x, y = self.x_train, self.y_train[i]
             if model is None:
                 raise ValueError(f"Unknown model type: {self.args.model}")
@@ -64,9 +91,7 @@ class CNC():
     def visualize(self):
         for i in range(self.args.future_steps):
             self._plot_confusion_matrix(i)
-            self._plot_roc_curve(i)
-            self._plot_precision_recall_curve(i)
-            self._plot_recall_vs_threshold(i)
+            self._plot_roc_pr_curves(i)
         plt.show()
 
     def _create_rolling_features(self) -> Tuple[np.ndarray, np.ndarray]:
@@ -95,50 +120,66 @@ class CNC():
         sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', cbar=True, xticklabels=['Non-Anomaly', 'Anomaly'], yticklabels=['Non-Anomaly', 'Anomaly'])
         plt.xlabel('Predicted', fontsize=14)
         plt.ylabel('Actual', fontsize=14)
-        plt.title(f'Confusion Matrix - Future step {i+1}', fontsize=16)
+        plt.title(f'Confusion Matrix of the {self.model_map[self.args.model]["name"]} - Future step {i+1}', fontsize=16)
         plt.xticks(fontsize=12)
         plt.yticks(fontsize=12)
         plt.tight_layout()
-
-    def _plot_roc_curve(self, i: int):
-        fpr, tpr, _ = roc_curve(self.y_test[i], self.y_probas[i])
-        roc_auc = auc(fpr, tpr)
-        plt.figure(figsize=(8, 6))
-        plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (area = {roc_auc:.2f})')
-        plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
-        plt.xlim([0.0, 1.0])
-        plt.ylim([0.0, 1.05])
-        plt.xlabel('False Positive Rate', fontsize=14)
-        plt.ylabel('True Positive Rate', fontsize=14)
-        plt.title(f'Receiver Operating Characteristic - Future step {i+1}', fontsize=16)
-        plt.legend(loc="lower right", fontsize=12)
-        plt.xticks(fontsize=12)
-        plt.yticks(fontsize=12)
-        plt.grid(True)
-        plt.tight_layout()
-
-    def _plot_precision_recall_curve(self, i: int):
-        precision, recall, _ = precision_recall_curve(self.y_test[i], self.y_probas[i])
-        plt.figure(figsize=(8, 6))
-        plt.plot(recall, precision, color='blue', lw=2, label='Precision-Recall curve')
-        plt.xlabel('Recall', fontsize=14)
-        plt.ylabel('Precision', fontsize=14)
-        plt.title(f'Precision-Recall curve - Future step {i+1}', fontsize=16)
-        plt.legend(loc="lower left", fontsize=12)
-        plt.xticks(fontsize=12)
-        plt.yticks(fontsize=12)
-        plt.grid(True)
-        plt.tight_layout()
-
-    def _plot_recall_vs_threshold(self, i: int):
-        _, recall, thresholds = precision_recall_curve(self.y_test[i], self.y_probas[i])
-        plt.figure(figsize=(8, 6))
-        plt.plot(thresholds, recall[:-1], "b--", label="Recall")
-        plt.xlabel('Threshold', fontsize=14)
-        plt.ylabel('Recall', fontsize=14)
-        plt.title(f'Recall vs Threshold - Future step {i+1}', fontsize=16)
-        plt.legend(loc="lower left", fontsize=12)
-        plt.xticks(fontsize=12)
-        plt.yticks(fontsize=12)
-        plt.grid(True)
-        plt.tight_layout()
+        
+    def _plot_roc_pr_curves(self, i: int):
+        pos_label, neg_label = True, False
+        
+        def fpr_score(y, y_pred, neg_label, pos_label):
+            cm = confusion_matrix(y, y_pred, labels=[neg_label, pos_label])
+            tn, fp, _, _ = cm.ravel()
+            tnr = tn / (tn + fp)
+            return 1 - tnr
+        
+        tpr_score = recall_score
+        scoring = {
+            "precision": make_scorer(precision_score, pos_label=pos_label),
+            "recall": make_scorer(recall_score, pos_label=pos_label),
+            "fpr": make_scorer(fpr_score, neg_label=neg_label, pos_label=pos_label),
+            "tpr": make_scorer(tpr_score, pos_label=pos_label),
+        }
+        
+        fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(14, 6))
+        
+        pr_display = PrecisionRecallDisplay.from_estimator(
+            self.models[i], self.x_test, self.y_test[i], pos_label=pos_label, ax=axs[0], name=self.model_map[self.args.model]["name"]
+        )
+        axs[0].plot(
+            scoring["recall"](self.models[i], self.x_test, self.y_test[i]),
+            scoring["precision"](self.models[i], self.x_test, self.y_test[i]),
+            marker="o",
+            markersize=10,
+            color="tab:blue",
+            label="Default cut-off point at a probability of 0.5",
+        )
+        axs[0].fill_between(pr_display.recall, pr_display.precision, step='post', alpha=0.2, color="b", label=f"AP area")
+        axs[0].set_title("Precision-Recall curve")
+        axs[0].legend()
+        axs[0].grid(True)
+        
+        roc_display = RocCurveDisplay.from_estimator(
+            self.models[i], 
+            self.x_test, 
+            self.y_test[i],
+            pos_label=pos_label,
+            ax=axs[1],
+            name=self.model_map[self.args.model]["name"],
+            plot_chance_level=True,
+        )
+        axs[1].plot(
+            scoring["fpr"](self.models[i], self.x_test, self.y_test[i]),
+            scoring["tpr"](self.models[i], self.x_test, self.y_test[i]),
+            marker="o",
+            markersize=10,
+            color="tab:blue",
+            label="Default cut-off point at a probability of 0.5",
+        )
+        axs[1].fill_between(roc_display.fpr, roc_display.tpr, alpha=0.2, color="b", label=f"AUC area")
+        axs[1].set_title("ROC curve")
+        axs[1].legend()
+        axs[1].grid(True)
+        
+        fig.suptitle(f"Evaluation of the {self.model_map[self.args.model]["name"]} - Future step {i+1}")
