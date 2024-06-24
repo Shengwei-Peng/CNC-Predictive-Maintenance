@@ -183,4 +183,4 @@ class CNC():
         axs[1].legend()
         axs[1].grid(True)
         
-        fig.suptitle(f"Evaluation of the {self.model_map[self.args.model]["name"]} - Future step {i+1}")
+        fig.suptitle(f"Evaluation of the {model_name} - Future step {i+1}")
