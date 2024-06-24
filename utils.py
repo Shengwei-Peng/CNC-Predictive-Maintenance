@@ -115,19 +115,20 @@ class CNC():
         self.y_test = [y_splits[i] for i in range(1, len(y_splits), 2)]
 
     def _plot_confusion_matrix(self, i: int):
+        model_name = self.model_map[self.args.model]["name"]
         cm = confusion_matrix(self.y_test[i], self.y_preds[i])
         plt.figure(figsize=(8, 6))
         sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', cbar=True, xticklabels=['Non-Anomaly', 'Anomaly'], yticklabels=['Non-Anomaly', 'Anomaly'])
         plt.xlabel('Predicted', fontsize=14)
         plt.ylabel('Actual', fontsize=14)
-        plt.title(f'Confusion Matrix of the {self.model_map[self.args.model]["name"]} - Future step {i+1}', fontsize=16)
+        plt.title(f'Confusion Matrix of the {model_name} - Future step {i+1}', fontsize=16)
         plt.xticks(fontsize=12)
         plt.yticks(fontsize=12)
         plt.tight_layout()
         
     def _plot_roc_pr_curves(self, i: int):
         pos_label, neg_label = True, False
-        
+        model_name = self.model_map[self.args.model]["name"]
         def fpr_score(y, y_pred, neg_label, pos_label):
             cm = confusion_matrix(y, y_pred, labels=[neg_label, pos_label])
             tn, fp, _, _ = cm.ravel()
@@ -145,7 +146,7 @@ class CNC():
         fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(14, 6))
         
         pr_display = PrecisionRecallDisplay.from_estimator(
-            self.models[i], self.x_test, self.y_test[i], pos_label=pos_label, ax=axs[0], name=self.model_map[self.args.model]["name"]
+            self.models[i], self.x_test, self.y_test[i], pos_label=pos_label, ax=axs[0], name=model_name
         )
         axs[0].plot(
             scoring["recall"](self.models[i], self.x_test, self.y_test[i]),
@@ -166,7 +167,7 @@ class CNC():
             self.y_test[i],
             pos_label=pos_label,
             ax=axs[1],
-            name=self.model_map[self.args.model]["name"],
+            name=model_name,
             plot_chance_level=True,
         )
         axs[1].plot(
