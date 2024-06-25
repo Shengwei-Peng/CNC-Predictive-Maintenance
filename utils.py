@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from typing import Tuple, List
 from types import SimpleNamespace
-from imblearn.over_sampling import SMOTE
+from imblearn.over_sampling import SMOTE, ADASYN, RandomOverSampler, BorderlineSMOTE
+from imblearn.under_sampling import RandomUnderSampler
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.svm import SVC
@@ -56,6 +57,13 @@ class CNC():
                 "model": MLPClassifier(random_state=self.args.seed)
             }
         }
+        self.sampler_map = {
+            "SMOTE": SMOTE(random_state=self.args.seed),
+            "ADASYN": ADASYN(random_state=self.args.seed),
+            "BorderlineSMOTE": BorderlineSMOTE(random_state=self.args.seed),
+            "RandomOverSampler": RandomOverSampler(random_state=self.args.seed),
+            "RandomUnderSampler": RandomUnderSampler(random_state=self.args.seed),
+        }
 
     def pre_process(self):
         self.data = pd.read_csv(self.args.file_path)
@@ -71,8 +79,8 @@ class CNC():
             x, y = self.x_train, self.y_train[i]
             if model is None:
                 raise ValueError(f"Unknown model type: {self.args.model}")
-            if self.args.over_sampling:
-                x, y = self._over_sampling(x, y)
+            if self.args.sampler is not None:
+                x, y = self._sampling(x, y)
             model.fit(x, y)
             self.models.append(model)
 
@@ -103,19 +111,21 @@ class CNC():
             y.append(labels)
         return np.array(x), np.array(y)
 
-    def _over_sampling(self, x: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    def _sampling(self, x: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         _, ax = plt.subplots(1, 2, figsize=(12, 6))
         labels, counts = np.unique(y, return_counts=True)
         label_names = ['Non-Anomaly', 'Anomaly']
         colors = ['#ff9999','#66b3ff']
         ax[0].pie(counts, labels=[f'{label_names[label]} ({count})' for label, count in zip(labels, counts)], autopct='%1.1f%%', startangle=90, colors=colors)
-        ax[0].set_title(f'Before')
-        smote = SMOTE(random_state=self.args.seed)
-        x_resampled, y_resampled = smote.fit_resample(x, y)
+        ax[0].set_title('Before')
+        sampler = self.sampler_map.get(self.args.sampler)
+        if sampler is None:
+            raise ValueError(f"Unknown sampling method: {self.args.sampler}")
+        x_resampled, y_resampled = sampler.fit_resample(x, y)
         labels_resampled, counts_resampled = np.unique(y_resampled, return_counts=True)
         ax[1].pie(counts_resampled, labels=[f'{label_names[label]} ({count})' for label, count in zip(labels_resampled, counts_resampled)], autopct='%1.1f%%', startangle=90, colors=colors)
-        ax[1].set_title(f'After')
-        plt.suptitle('Class Distribution in Training Dataset', fontsize=16)
+        ax[1].set_title('After')
+        plt.suptitle(self.args.sampler, fontsize=16)
         plt.tight_layout()
         plt.show()
         return x_resampled, y_resampled
@@ -155,7 +165,10 @@ class CNC():
         }
         fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(14, 6))
         pr_display = PrecisionRecallDisplay.from_estimator(
-            self.models[i], self.x_test, self.y_test[i], pos_label=pos_label, ax=axs[0], name=model_name
+            self.models[i],
+            self.x_test, self.y_test[i],
+            pos_label=pos_label, ax=axs[0],
+            name=model_name
         )
         axs[0].plot(
             scoring["recall"](self.models[i], self.x_test, self.y_test[i]),
@@ -170,8 +183,8 @@ class CNC():
         axs[0].legend()
         axs[0].grid(True)
         roc_display = RocCurveDisplay.from_estimator(
-            self.models[i], 
-            self.x_test, 
+            self.models[i],
+            self.x_test,
             self.y_test[i],
             pos_label=pos_label,
             ax=axs[1],

@@ -8,6 +8,7 @@ This repository contains the code and data for a predictive maintenance system f
 - [Installation](#installation)
 - [Data](#data)
 - [Usage](#usage)
+- [Arguments](#arguments)
 - [Contributing](#contributing)
 - [License](#license)
 - [Contact](#contact)
@@ -90,38 +91,50 @@ To utilize the predictive maintenance system, follow the steps below to run the 
 
 3. The `main.ipynb` notebook contains the code to preprocess data, train the model, evaluate its performance, and visualize the results. The main steps involved are:
 
-    - **Initialize**: This involves setting up the necessary parameters.
+    - **Initialize**: This involves setting up the necessary parameters (refer to the [Arguments](#arguments) section below).
     - **Preprocess**: This step involves cleaning and preparing the data for model training.
     - **Train**: The selected machine learning model is trained using the preprocessed data.
     - **Evaluate**: The trained model is evaluated to determine its accuracy and effectiveness in predicting failures.
     - **Visualize**: The results of the model's predictions are visualized.
 
-4. **Models:**
-    The system supports several machine learning models for predictive maintenance. You can specify the desired model using the `args.model` parameter. The available models are:
 
-    - `NB`: Gaussian Naive Bayes
-    - `KNN`: K-Nearest Neighbors
-    - `DT`: Decision Tree
-    - `RF`: Random Forest
-    - `SVM`: Support Vector Machine
-    - `MLP`: Multi-Layer Perceptron
+## Arguments
+The arguments for running the system are defined as follows:
 
-5. **Arguments:**
-    The arguments for running the system are defined as follows:
-    <details>
-    <summary>Click to expand</summary>
+| Argument         | Type   | Description                                                         | Example        |
+|------------------|--------|---------------------------------------------------------------------|----------------|
+| `file_path`      | str    | Path to the dataset file.                                           | `"./data.csv"` |
+| `model`          | str    | The machine learning model to be used for prediction.               | `"NB"`         |
+| `sampler`        | str    | Sampling method to balance the dataset.                             | `"SMOTE"`      |
+| `future_steps`   | int    | Number of future steps to predict.                                  | `1`            |
+| `window_size`    | int    | Size of the sliding window for feature extraction.                  | `3 `           |
+| `test_size`      | int    | Number of samples to include in the test split.                     | `200`          |
+| `seed`           | int    | Random seed for reproducibility.                                    | `0`            |
+| `threshold`      | float  | Threshold for converting predicted probabilities into class labels. | `0.5`          |
 
-    | Argument       | Type   | Description                                                                   | Example             |
-    |----------------|--------|-------------------------------------------------------------------------------|---------------------|
-    | `file_path`    | str    | Path to the dataset file.                                                     | `"./data/data.csv"` |
-    | `model`        | str    | The machine learning model to be used for prediction.                         | `"NB"`              |
-    | `over_sampling`| bool   | Whether to apply over-sampling to balance the dataset.                        | `False`             |
-    | `future_steps` | int    | Number of future steps to predict.                                            | `1`                 |
-    | `window_size`  | int    | Size of the sliding window for feature extraction.                            | `3 `                |
-    | `test_size`    | int    | Number of samples to include in the test split.                               | `200`               |
-    | `seed`         | int    | Random seed for reproducibility.                                              | `0`                 |
-    | `threshold`    | float  | Threshold value for converting the predicted probabilities into class labels. | `0.5`               |
-    </details>
+
+### Models
+
+You can specify the desired model using the `model` parameter. The available models are:
+
+- `NB`: Gaussian Naive Bayes
+- `KNN`: K-Nearest Neighbors
+- `DT`: Decision Tree
+- `RF`: Random Forest
+- `SVM`: Support Vector Machine
+- `MLP`: Multi-Layer Perceptron
+
+### Sampler
+
+You can specify the sampling method using the `sampler` parameter. The available methods are:
+
+- `None`: No sampling applied.
+- `SMOTE`: Synthetic Minority Over-sampling Technique
+- `ADASYN`: Adaptive Synthetic Sampling
+- `BorderlineSMOTE`: Borderline Synthetic Minority Over-sampling Technique
+- `RandomOverSampler`: Random Over-Sampling
+- `RandomUnderSampler`: Random Under-Sampling
+
 
 ## Contributing
 
