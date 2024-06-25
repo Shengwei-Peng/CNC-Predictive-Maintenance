@@ -104,8 +104,21 @@ class CNC():
         return np.array(x), np.array(y)
 
     def _over_sampling(self, x: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        
+        _, ax = plt.subplots(1, 2, figsize=(12, 6))
+        labels, counts = np.unique(y, return_counts=True)
+        label_names = ['Non-Anomaly', 'Anomaly']
+        colors = ['#ff9999','#66b3ff']
+        ax[0].pie(counts, labels=[f'{label_names[label]} ({count})' for label, count in zip(labels, counts)], autopct='%1.1f%%', startangle=90, colors=colors)
+        ax[0].set_title(f'Before')
         smote = SMOTE(random_state=self.args.seed)
         x_resampled, y_resampled = smote.fit_resample(x, y)
+        labels_resampled, counts_resampled = np.unique(y_resampled, return_counts=True)
+        ax[1].pie(counts_resampled, labels=[f'{label_names[label]} ({count})' for label, count in zip(labels_resampled, counts_resampled)], autopct='%1.1f%%', startangle=90, colors=colors)
+        ax[1].set_title(f'After')
+        plt.suptitle('Class Distribution in Training Dataset', fontsize=16)
+        plt.tight_layout()
+        plt.show()
         return x_resampled, y_resampled
 
     def _split_data(self, x: np.ndarray, y: np.ndarray):
@@ -184,3 +197,13 @@ class CNC():
         axs[1].grid(True)
         
         fig.suptitle(f"Evaluation of the {model_name} - Future step {i+1}")
+
+    # def _visualize_class_distribution(self, x: np.ndarray, y: np.ndarray, title: str):
+    #     fig, ax = plt.subplots(1, 2, figsize=(12, 6))
+    #     labels, counts = np.unique(y, return_counts=True)
+    #     colors = ['#ff9999','#66b3ff']
+    #     ax[0].pie(counts, labels=[f'{label} ({count})' for label, count in zip(labels, counts)], autopct='%1.1f%%', startangle=90, colors=colors)
+    #     ax[0].set_title(f'Before SMOTE\n{title}')
+    #     labels_resampled, counts_resampled = np.unique(y, return_counts=True)
+    #     ax[1].pie(counts_resampled, labels=[f'{label} ({count})' for label, count in zip(labels_resampled, counts_resampled)], autopct='%1.1f%%', startangle=90, colors=colors)
+    #     ax[1].set_title(f'After SMOTE\n{title}')
