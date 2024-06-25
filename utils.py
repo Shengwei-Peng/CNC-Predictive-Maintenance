@@ -104,7 +104,6 @@ class CNC():
         return np.array(x), np.array(y)
 
     def _over_sampling(self, x: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        
         _, ax = plt.subplots(1, 2, figsize=(12, 6))
         labels, counts = np.unique(y, return_counts=True)
         label_names = ['Non-Anomaly', 'Anomaly']
@@ -147,7 +146,6 @@ class CNC():
             tn, fp, _, _ = cm.ravel()
             tnr = tn / (tn + fp)
             return 1 - tnr
-        
         tpr_score = recall_score
         scoring = {
             "precision": make_scorer(precision_score, pos_label=pos_label),
@@ -155,9 +153,7 @@ class CNC():
             "fpr": make_scorer(fpr_score, neg_label=neg_label, pos_label=pos_label),
             "tpr": make_scorer(tpr_score, pos_label=pos_label),
         }
-        
         fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(14, 6))
-        
         pr_display = PrecisionRecallDisplay.from_estimator(
             self.models[i], self.x_test, self.y_test[i], pos_label=pos_label, ax=axs[0], name=model_name
         )
@@ -173,7 +169,6 @@ class CNC():
         axs[0].set_title("Precision-Recall curve")
         axs[0].legend()
         axs[0].grid(True)
-        
         roc_display = RocCurveDisplay.from_estimator(
             self.models[i], 
             self.x_test, 
@@ -195,15 +190,4 @@ class CNC():
         axs[1].set_title("ROC curve")
         axs[1].legend()
         axs[1].grid(True)
-        
         fig.suptitle(f"Evaluation of the {model_name} - Future step {i+1}")
-
-    # def _visualize_class_distribution(self, x: np.ndarray, y: np.ndarray, title: str):
-    #     fig, ax = plt.subplots(1, 2, figsize=(12, 6))
-    #     labels, counts = np.unique(y, return_counts=True)
-    #     colors = ['#ff9999','#66b3ff']
-    #     ax[0].pie(counts, labels=[f'{label} ({count})' for label, count in zip(labels, counts)], autopct='%1.1f%%', startangle=90, colors=colors)
-    #     ax[0].set_title(f'Before SMOTE\n{title}')
-    #     labels_resampled, counts_resampled = np.unique(y, return_counts=True)
-    #     ax[1].pie(counts_resampled, labels=[f'{label} ({count})' for label, count in zip(labels_resampled, counts_resampled)], autopct='%1.1f%%', startangle=90, colors=colors)
-    #     ax[1].set_title(f'After SMOTE\n{title}')
