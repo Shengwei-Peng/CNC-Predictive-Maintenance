@@ -8,13 +8,14 @@ from typing import Tuple, List
 from types import SimpleNamespace
 from imblearn.over_sampling import SMOTE, ADASYN, RandomOverSampler, BorderlineSMOTE
 from imblearn.under_sampling import RandomUnderSampler
+from xgboost import XGBClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import GaussianNB
-from sklearn.neural_network import MLPClassifier
+from sklearn.model_selection import TunedThresholdClassifierCV
 from sklearn.metrics import (
     make_scorer,
     recall_score,
@@ -23,7 +24,10 @@ from sklearn.metrics import (
     classification_report,
     RocCurveDisplay,
     PrecisionRecallDisplay,
+    get_scorer,
 )
+import warnings
+warnings.filterwarnings('ignore')
 
 
 class CNC():
@@ -32,6 +36,10 @@ class CNC():
         random.seed(self.args.seed)
         np.random.seed(self.args.seed)
         self.model_map = {
+            "LR": {
+                "name": "Logistic Regression",
+                "model": LogisticRegression()
+            },
             "NB": {
                 "name": "Gaussian Naive Bayes",
                 "model": GaussianNB()
@@ -48,14 +56,10 @@ class CNC():
                 "name": "Random Forest",
                 "model": RandomForestClassifier(random_state=self.args.seed)
             },
-            "SVM": {
-                "name": "Support Vector Machine",
-                "model": SVC(probability=True, random_state=self.args.seed)
+            "XGB": {
+                "name": "eXtreme Gradient Boosting",
+                "model": XGBClassifier(random_state=self.args.seed)
             },
-            "MLP": {
-                "name": "Multi-Layer Perceptron",
-                "model": MLPClassifier(random_state=self.args.seed)
-            }
         }
         self.sampler_map = {
             "SMOTE": SMOTE(random_state=self.args.seed),
@@ -74,6 +78,7 @@ class CNC():
 
     def train(self):
         self.models = []
+        self.tuned_models = []
         for i in tqdm(range(self.args.future_steps), desc="Training models"):
             model = self.model_map[self.args.model]["model"]
             x, y = self.x_train, self.y_train[i]
@@ -83,23 +88,78 @@ class CNC():
                 x, y = self._sampling(x, y)
             model.fit(x, y)
             self.models.append(model)
+            tuned_model = TunedThresholdClassifierCV(
+                estimator=model,
+                scoring="balanced_accuracy",
+                store_cv_results=True,
+                random_state=self.args.seed,
+            )
+            tuned_model.fit(x, y)
+            self.tuned_models.append(tuned_model)
 
     def evaluate(self):
         self.y_preds = []
-        self.y_probas = []
+        balanced_accuracy_scorer = get_scorer("balanced_accuracy")
         for i in range(self.args.future_steps):
-            y_proba = self.models[i].predict_proba(self.x_test)[:, 1]
-            y_pred = (y_proba >= self.args.threshold).astype(int)
-            self.y_preds.append(y_pred)
-            self.y_probas.append(y_proba)
-            report = classification_report(self.y_test[i], y_pred)
-            print(f"Report - Future step {i+1}:")
-            print(report)
+            
+            vanilla_pred = self.models[i].predict(self.x_test)
+            vanilla_report = classification_report(self.y_test[i], vanilla_pred, output_dict=True, target_names=['Non-Anomaly', 'Anomaly'])
+            vanilla_acc = balanced_accuracy_scorer(self.models[i], self.x_test, self.y_test[i])
+            
+            print(f"Vanilla model Report - Future step {i+1}:")
+            print(classification_report(self.y_test[i], vanilla_pred, target_names=['Non-Anomaly', 'Anomaly']))
+            print(f"Balanced accuracy of Vanilla model: {vanilla_acc:.2%}")
 
+            tuned_pred = self.tuned_models[i].predict(self.x_test)
+            tuned_report = classification_report(self.y_test[i], tuned_pred, output_dict=True, target_names=['Non-Anomaly', 'Anomaly'])
+            tuned_acc = balanced_accuracy_scorer(self.tuned_models[i], self.x_test, self.y_test[i])
+            
+            print(f"\nTuned model Report - Future step {i+1}:")
+            print(classification_report(self.y_test[i], tuned_pred, target_names=['Non-Anomaly', 'Anomaly']))
+            print(f"Balanced accuracy of Tuned model: {tuned_acc:.2%}")
+            self._visualize_classification_report(i + 1, vanilla_report, tuned_report)
+            
+            model = self.tuned_models[i] if tuned_acc > vanilla_acc else self.models[i]
+            y_pred = model.predict(self.x_test)
+            self.y_preds.append(y_pred)
+    
     def visualize(self):
         for i in range(self.args.future_steps):
             self._plot_confusion_matrix(i)
             self._plot_roc_pr_curves(i)
+        plt.show()
+
+    def _visualize_classification_report(self, step, vanilla_report, tuned_report):
+        metrics = ['precision', 'recall', 'f1-score']
+        classes = list(vanilla_report.keys())[:-3]
+        n_classes = len(classes)
+        n_metrics = len(metrics)
+        
+        _, ax = plt.subplots(figsize=(16, 9))
+        width = 0.35
+        x = np.arange(n_classes * n_metrics)
+
+        vanilla_scores = []
+        tuned_scores = []
+        labels = []
+        
+        for metric in metrics:
+            for cls in classes:
+                vanilla_scores.append(vanilla_report[cls][metric])
+                tuned_scores.append(tuned_report[cls][metric])
+                labels.append(f'{cls} - {metric}')
+        
+        ax.bar(x - width/2, vanilla_scores, width, label='Vanilla', color='skyblue', edgecolor='black')
+        ax.bar(x + width/2, tuned_scores, width, label='Tuned', color='orange', edgecolor='black')
+        
+        ax.set_ylabel('Scores')
+        ax.set_title(f"Model Comparison Report - Step {step}")
+        ax.set_xticks(x)
+        ax.set_xticklabels(labels, rotation=45, ha='right')
+        ax.legend(loc='best')
+        ax.grid(axis='y', linestyle='--', alpha=0.7)
+
+        plt.tight_layout()
         plt.show()
 
     def _create_rolling_features(self) -> Tuple[np.ndarray, np.ndarray]:
@@ -163,44 +223,79 @@ class CNC():
             "fpr": make_scorer(fpr_score, neg_label=neg_label, pos_label=pos_label),
             "tpr": make_scorer(tpr_score, pos_label=pos_label),
         }
-        fig, axs = plt.subplots(nrows=1, ncols=2, figsize=(14, 6))
-        pr_display = PrecisionRecallDisplay.from_estimator(
-            self.models[i],
-            self.x_test, self.y_test[i],
-            pos_label=pos_label, ax=axs[0],
-            name=model_name
-        )
-        axs[0].plot(
-            scoring["recall"](self.models[i], self.x_test, self.y_test[i]),
-            scoring["precision"](self.models[i], self.x_test, self.y_test[i]),
-            marker="o",
-            markersize=10,
-            color="tab:blue",
-            label="Default cut-off point at a probability of 0.5",
-        )
+        fig, axs = plt.subplots(nrows=1, ncols=3, figsize=(21, 6))
+        linestyles = ("dashed", "dotted")
+        markerstyles = ("o", ">")
+        colors = ("tab:blue", "tab:orange")
+        names = (f"Vanilla {model_name}", f"Tuned {model_name}")
+        for idx, (est, linestyle, marker, color, name) in enumerate(
+        zip((self.models[i], self.tuned_models[i]), linestyles, markerstyles, colors, names)
+        ):
+            decision_threshold = getattr(est, "best_threshold_", 0.5)
+            pr_display = PrecisionRecallDisplay.from_estimator(
+                est,
+                self.x_test,
+                self.y_test[i],
+                pos_label=pos_label,
+                linestyle=linestyle,
+                color=color,
+                ax=axs[0],
+                name=name,
+            )
+            axs[0].plot(
+                scoring["recall"](est, self.x_test, self.y_test[i]),
+                scoring["precision"](est, self.x_test, self.y_test[i]),
+                marker,
+                markersize=10,
+                color=color,
+                label=f"Cut-off point at probability of {decision_threshold:.2f}",
+            )
+            roc_display = RocCurveDisplay.from_estimator(
+                est,
+                self.x_test,
+                self.y_test[i],
+                pos_label=pos_label,
+                linestyle=linestyle,
+                color=color,
+                ax=axs[1],
+                name=name,
+                plot_chance_level=idx == 1,
+            )
+            axs[1].plot(
+                scoring["fpr"](est, self.x_test, self.y_test[i]),
+                scoring["tpr"](est, self.x_test, self.y_test[i]),
+                marker,
+                markersize=10,
+                color=color,
+                label=f"Cut-off point at probability of {decision_threshold:.2f}",
+            )
         axs[0].fill_between(pr_display.recall, pr_display.precision, step='post', alpha=0.2, color="b", label=f"AP area")
         axs[0].set_title("Precision-Recall curve")
         axs[0].legend()
         axs[0].grid(True)
-        roc_display = RocCurveDisplay.from_estimator(
-            self.models[i],
-            self.x_test,
-            self.y_test[i],
-            pos_label=pos_label,
-            ax=axs[1],
-            name=model_name,
-            plot_chance_level=True,
-        )
-        axs[1].plot(
-            scoring["fpr"](self.models[i], self.x_test, self.y_test[i]),
-            scoring["tpr"](self.models[i], self.x_test, self.y_test[i]),
-            marker="o",
-            markersize=10,
-            color="tab:blue",
-            label="Default cut-off point at a probability of 0.5",
-        )
         axs[1].fill_between(roc_display.fpr, roc_display.tpr, alpha=0.2, color="b", label=f"AUC area")
         axs[1].set_title("ROC curve")
         axs[1].legend()
         axs[1].grid(True)
+        
+        axs[2].plot(
+        self.tuned_models[i].cv_results_["thresholds"],
+        self.tuned_models[i].cv_results_["scores"],
+        color="tab:orange",
+        )
+        axs[2].plot(
+            self.tuned_models[i].best_threshold_,
+            self.tuned_models[i].best_score_,
+            "o",
+            markersize=10,
+            color="tab:orange",
+            label=f"Optimal cut-off point for the business metric ({self.tuned_models[i].best_threshold_:.2f})",
+        )
+        axs[2].legend()
+        axs[2].set_xlabel("Decision threshold (probability)")
+        axs[2].set_ylabel("Objective score (using balanced accuracy)")
+        axs[2].set_title("Objective score as a function of the decision threshold")
+        axs[2].grid(True)
+        
         fig.suptitle(f"Evaluation of the {model_name} - Future step {i+1}")
+        

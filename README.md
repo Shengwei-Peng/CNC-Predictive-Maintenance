@@ -104,25 +104,24 @@ The arguments for running the system are defined as follows:
 | Argument         | Type   | Description                                                         | Example        |
 |------------------|--------|---------------------------------------------------------------------|----------------|
 | `file_path`      | str    | Path to the dataset file.                                           | `"./data.csv"` |
-| `model`          | str    | The machine learning model to be used for prediction.               | `"NB"`         |
+| `model`          | str    | The machine learning model to be used for prediction.               | `"XGB"`         |
 | `sampler`        | str    | Sampling method to balance the dataset.                             | `"SMOTE"`      |
 | `future_steps`   | int    | Number of future steps to predict.                                  | `1`            |
 | `window_size`    | int    | Size of the sliding window for feature extraction.                  | `3 `           |
 | `test_size`      | int    | Number of samples to include in the test split.                     | `200`          |
 | `seed`           | int    | Random seed for reproducibility.                                    | `0`            |
-| `threshold`      | float  | Threshold for converting predicted probabilities into class labels. | `0.5`          |
 
 
 ### Models
 
 You can specify the desired model using the `model` parameter. The available models are:
 
+- `LR`: Logistic Regression
 - `NB`: Gaussian Naive Bayes
 - `KNN`: K-Nearest Neighbors
 - `DT`: Decision Tree
 - `RF`: Random Forest
-- `SVM`: Support Vector Machine
-- `MLP`: Multi-Layer Perceptron
+- `XGB`: eXtreme Gradient Boosting
 
 ### Sampler
 
