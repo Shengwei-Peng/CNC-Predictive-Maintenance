@@ -70,11 +70,10 @@ class CNC():
         }
 
     def pre_process(self):
-        self.data = pd.read_csv(self.args.file_path)
-        self.data['time'] = pd.to_datetime(self.data['time'])
-        self.data['time'] = self.data['time'].astype(int) // 10**9
-        x, y = self._create_rolling_features()
-        self._split_data(x, y)
+        self._load_data()
+        self._features_selection()
+        self._create_rolling_features()
+        self._split_data()
 
     def train(self):
         self.models = []
@@ -117,6 +116,95 @@ class CNC():
             self._visualize_classification_report(i + 1, vanilla_report, tuned_report)
             self._plot_roc_pr_curves(i)
             self._plot_confusion_matrix(i)
+
+    def _load_data(self):
+        data = pd.read_csv(self.args.file_path)
+        data['time'] = pd.to_datetime(data['time']).astype(int) // 10**9
+        self.x = data.drop(columns=['Anomaly'])
+        self.y = data['Anomaly']
+
+    def _features_selection(self, correlation_threshold: float = 0.9):
+        
+        correlation_matrix = self.x.corr(numeric_only=True)
+
+        high_corr_pairs = [
+            (correlation_matrix.columns[i], correlation_matrix.columns[j], correlation_matrix.iloc[i, j])
+            for i in range(len(correlation_matrix.columns))
+            for j in range(i + 1, len(correlation_matrix.columns))
+            if abs(correlation_matrix.iloc[i, j]) > correlation_threshold
+        ]
+        features_to_remove = {feature2 for _, feature2, _ in high_corr_pairs}
+        
+        remaining_features = [feature for feature in self.x.columns if feature not in features_to_remove]
+        self.x = self.x[remaining_features]
+        filtered_correlation_matrix = self.x.corr(numeric_only=True)
+
+        sns.set_style("whitegrid")
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10))
+        fig.suptitle('Features Selection Before and After', fontsize=22, fontweight='bold')
+
+        sns.heatmap(correlation_matrix, annot=True, fmt=".2f", cmap='coolwarm', cbar=True, ax=ax1, annot_kws={"size": 10})
+        ax1.set_title('Feature Correlation Matrix (Before)', fontsize=18, fontweight='bold')
+        ax1.tick_params(axis='x', rotation=90, labelsize=12)
+        ax1.tick_params(axis='y', rotation=0, labelsize=12)
+
+        sns.heatmap(filtered_correlation_matrix, annot=True, fmt=".2f", cmap='coolwarm', cbar=True, ax=ax2, annot_kws={"size": 10})
+        ax2.set_title('Feature Correlation Matrix (After)', fontsize=18, fontweight='bold')
+        ax2.tick_params(axis='x', rotation=90, labelsize=12)
+        ax2.tick_params(axis='y', rotation=0, labelsize=12)
+
+        plt.tight_layout()
+        plt.show()
+
+    def _create_rolling_features(self):
+        x, y = [], []
+        for i in tqdm(range(len(self.y) - self.args.window_size - self.args.future_steps + 1), desc="Data preprocessing"):
+            features = self.x.iloc[i:i + self.args.window_size].values.flatten()
+            labels = self.y[i + self.args.window_size:i + self.args.window_size + self.args.future_steps].values
+            x.append(features)
+            y.append(labels)
+        self.x = np.array(x)
+        self.y = np.array(y)
+
+    def _split_data(self):
+        y_list: List[np.ndarray] = [self.y[:, i] for i in range(self.args.future_steps)]
+        self.x_train, self.x_test, *y_splits = train_test_split(self.x, *y_list, test_size=self.args.test_size, random_state=self.args.seed)
+        self.y_train = [y_splits[i] for i in range(0, len(y_splits), 2)]
+        self.y_test = [y_splits[i] for i in range(1, len(y_splits), 2)]
+
+    def _sampling(self, x: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        fig, ax = plt.subplots(1, 2, figsize=(14, 7))
+        
+        label_names = ['Non-Anomaly', 'Anomaly']
+        colors = ['#ff9999', '#66b3ff']
+
+        counts = np.bincount(y)
+        wedges_before, _, _ = ax[0].pie(counts, 
+                                        autopct=lambda pct: f'{pct:.1f}%\n({int(pct/100.*sum(counts))})', 
+                                        startangle=90, 
+                                        colors=colors, 
+                                        textprops={'fontsize': 14})
+        ax[0].set_title('Before Sampling', fontsize=16)
+  
+        sampler = self.sampler_map.get(self.args.sampler)
+        if sampler is None:
+            raise ValueError(f"Unknown sampling method: {self.args.sampler}")
+        x_resampled, y_resampled = sampler.fit_resample(x, y)
+        
+        counts_resampled = np.bincount(y_resampled)
+        ax[1].pie(counts_resampled, 
+                  autopct=lambda pct: f'{pct:.1f}%\n({int(pct/100.*sum(counts_resampled))})',
+                  startangle=90,
+                  colors=colors, 
+                  textprops={'fontsize': 14})
+        ax[1].set_title('After Sampling', fontsize=16)
+
+        fig.legend(wedges_before, label_names, loc='lower center', fontsize=14, title='Classes', ncol=2)
+        plt.suptitle(f'Impact of {self.args.sampler} on Class Distribution', fontsize=20, y=0.95)
+        plt.tight_layout(pad=2.0, rect=[0, 0, 1, 0.95])
+        plt.show()
+
+        return x_resampled, y_resampled
 
     def _visualize_classification_report(self, step: int, vanilla_report: dict, tuned_report: dict):
         classes = list(vanilla_report.keys())
@@ -162,71 +250,6 @@ class CNC():
         plt.tight_layout()
         plt.show()
 
-    def _create_rolling_features(self) -> Tuple[np.ndarray, np.ndarray]:
-        x, y = [], []
-        for i in tqdm(range(len(self.data) - self.args.window_size - self.args.future_steps + 1), desc="Creating rolling window features"):
-            features = self.data.iloc[i:i + self.args.window_size].drop(columns=['Anomaly']).values.flatten()
-            labels = self.data.iloc[i + self.args.window_size:i + self.args.window_size + self.args.future_steps]['Anomaly'].values
-            x.append(features)
-            y.append(labels)
-        return np.array(x), np.array(y)
-
-    def _sampling(self, x: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        fig, ax = plt.subplots(1, 2, figsize=(14, 7))
-        
-        label_names = ['Non-Anomaly', 'Anomaly']
-        colors = ['#ff9999', '#66b3ff']
-
-        counts = np.bincount(y)
-        wedges_before, _, _ = ax[0].pie(counts, 
-                                        autopct=lambda pct: f'{pct:.1f}%\n({int(pct/100.*sum(counts))})', 
-                                        startangle=90, 
-                                        colors=colors, 
-                                        textprops={'fontsize': 14})
-        ax[0].set_title('Before Sampling', fontsize=16)
-  
-        sampler = self.sampler_map.get(self.args.sampler)
-        if sampler is None:
-            raise ValueError(f"Unknown sampling method: {self.args.sampler}")
-        x_resampled, y_resampled = sampler.fit_resample(x, y)
-        
-        counts_resampled = np.bincount(y_resampled)
-        ax[1].pie(counts_resampled, 
-                  autopct=lambda pct: f'{pct:.1f}%\n({int(pct/100.*sum(counts_resampled))})',
-                  startangle=90,
-                  colors=colors, 
-                  textprops={'fontsize': 14})
-        ax[1].set_title('After Sampling', fontsize=16)
-
-        fig.legend(wedges_before, label_names, loc='lower center', fontsize=14, title='Classes', ncol=2)
-        plt.suptitle(f'Impact of {self.args.sampler} on Class Distribution', fontsize=20, y=0.95)
-        plt.tight_layout(pad=2.0, rect=[0, 0, 1, 0.95])
-        plt.show()
-
-        return x_resampled, y_resampled
-
-    def _split_data(self, x: np.ndarray, y: np.ndarray):
-        y_list: List[np.ndarray] = [y[:, i] for i in range(self.args.future_steps)]
-        self.x_train, self.x_test, *y_splits = train_test_split(x, *y_list, test_size=self.args.test_size, random_state=self.args.seed)
-        self.y_train = [y_splits[i] for i in range(0, len(y_splits), 2)]
-        self.y_test = [y_splits[i] for i in range(1, len(y_splits), 2)]
-
-    def _plot_confusion_matrix(self, i: int):
-        model_name = self.model_map[self.args.model]["name"]
-        cm = confusion_matrix(self.y_test[i], self.y_preds[i])
-        
-        plt.figure(figsize=(10, 8))
-        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', cbar=True, 
-                    xticklabels=['Non-Anomaly', 'Anomaly'], yticklabels=['Non-Anomaly', 'Anomaly'],
-                    annot_kws={"size": 14}, linewidths=1, linecolor='black')
-
-        plt.xlabel('Predicted', fontsize=16, labelpad=20)
-        plt.ylabel('Actual', fontsize=16, labelpad=20)
-        plt.title(f'Confusion Matrix of the {model_name} - Future step {i+1}', fontsize=18, pad=20)
-        plt.xticks(fontsize=14)
-        plt.yticks(fontsize=14)
-        plt.tight_layout()
-        
     def _plot_roc_pr_curves(self, i: int):
         pos_label, neg_label = True, False
         model_name = self.model_map[self.args.model]["name"]
@@ -331,4 +354,19 @@ class CNC():
         
         fig.suptitle(f"Comparison of the cut-off point for the vanilla and tuned {model_name} - Future step {i+1}", fontsize=18)
         plt.tight_layout()
+
+    def _plot_confusion_matrix(self, i: int):
+        model_name = self.model_map[self.args.model]["name"]
+        cm = confusion_matrix(self.y_test[i], self.y_preds[i])
         
+        plt.figure(figsize=(10, 8))
+        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', cbar=True, 
+                    xticklabels=['Non-Anomaly', 'Anomaly'], yticklabels=['Non-Anomaly', 'Anomaly'],
+                    annot_kws={"size": 14}, linewidths=1, linecolor='black')
+
+        plt.xlabel('Predicted', fontsize=16, labelpad=20)
+        plt.ylabel('Actual', fontsize=16, labelpad=20)
+        plt.title(f'Confusion Matrix of the {model_name} - Future step {i+1}', fontsize=18, pad=20)
+        plt.xticks(fontsize=14)
+        plt.yticks(fontsize=14)
+        plt.tight_layout()
