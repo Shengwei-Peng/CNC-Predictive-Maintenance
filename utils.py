@@ -104,52 +104,43 @@ class CNC():
             
             vanilla_pred = self.models[i].predict(self.x_test)
             vanilla_report = classification_report(self.y_test[i], vanilla_pred, output_dict=True, target_names=['Non-Anomaly', 'Anomaly'])
-            vanilla_acc = balanced_accuracy_scorer(self.models[i], self.x_test, self.y_test[i])
-            
-            print(f"Vanilla model Report - Future step {i+1}:")
-            print(classification_report(self.y_test[i], vanilla_pred, target_names=['Non-Anomaly', 'Anomaly']))
-            print(f"Balanced accuracy of Vanilla model: {vanilla_acc:.2%}")
+            vanilla_report["balanced_accuracy"] = balanced_accuracy_scorer(self.models[i], self.x_test, self.y_test[i])
 
             tuned_pred = self.tuned_models[i].predict(self.x_test)
             tuned_report = classification_report(self.y_test[i], tuned_pred, output_dict=True, target_names=['Non-Anomaly', 'Anomaly'])
-            tuned_acc = balanced_accuracy_scorer(self.tuned_models[i], self.x_test, self.y_test[i])
+            tuned_report["balanced_accuracy"] = balanced_accuracy_scorer(self.tuned_models[i], self.x_test, self.y_test[i])
             
-            print(f"\nTuned model Report - Future step {i+1}:")
-            print(classification_report(self.y_test[i], tuned_pred, target_names=['Non-Anomaly', 'Anomaly']))
-            print(f"Balanced accuracy of Tuned model: {tuned_acc:.2%}")
-            self._visualize_classification_report(i + 1, vanilla_report, tuned_report)
-            
-            model = self.tuned_models[i] if tuned_acc > vanilla_acc else self.models[i]
+            model = self.tuned_models[i] if tuned_report["balanced_accuracy"] > vanilla_report["balanced_accuracy"] else self.models[i]
             y_pred = model.predict(self.x_test)
             self.y_preds.append(y_pred)
-    
-    def visualize(self):
-        for i in range(self.args.future_steps):
-            self._plot_confusion_matrix(i)
+            
+            self._visualize_classification_report(i + 1, vanilla_report, tuned_report)
             self._plot_roc_pr_curves(i)
-        plt.show()
+            self._plot_confusion_matrix(i)
 
-    def _visualize_classification_report(self, step, vanilla_report, tuned_report):
-        metrics = ['precision', 'recall', 'f1-score']
-        classes = list(vanilla_report.keys())[:-3]
-        n_classes = len(classes)
-        n_metrics = len(metrics)
-        
-        _, ax = plt.subplots(figsize=(14, 8))
+    def _visualize_classification_report(self, step: int, vanilla_report: dict, tuned_report: dict):
+        classes = list(vanilla_report.keys())
+        _, ax = plt.subplots(figsize=(20, 8))
         width = 0.35
-        x = np.arange(n_classes * n_metrics)
 
         vanilla_scores = []
         tuned_scores = []
         labels = []
         
-        for metric in metrics:
-            for cls in classes:
-                vanilla_scores.append(vanilla_report[cls][metric])
-                tuned_scores.append(tuned_report[cls][metric])
-                labels.append(f'{cls} - {metric}')
+        for cls in classes:
+            if cls in ['accuracy', 'balanced_accuracy']:
+                vanilla_scores.append(vanilla_report[cls])
+                tuned_scores.append(tuned_report[cls])
+                labels.append('Accuracy' if cls == 'accuracy' else 'Balanced Accuracy')
+            elif cls in ['Non-Anomaly', 'Anomaly']:
+                for metric in ['precision', 'recall', 'f1-score']:
+                    vanilla_scores.append(vanilla_report[cls][metric])
+                    tuned_scores.append(tuned_report[cls][metric])
+                    labels.append(f'{cls} - {metric}')
         
-        bars_vanilla =ax.bar(x - width/2, vanilla_scores, width, label='Before', color='skyblue', edgecolor='black')
+        x = np.arange(len(labels))
+        
+        bars_vanilla = ax.bar(x - width/2, vanilla_scores, width, label='Before', color='skyblue', edgecolor='black')
         bars_tuned = ax.bar(x + width/2, tuned_scores, width, label='After', color='orange', edgecolor='black')
         
         for bar in bars_vanilla:
@@ -162,9 +153,9 @@ class CNC():
                         xytext=(0, 3), textcoords="offset points", ha='center', va='bottom', fontsize=10)
         
         ax.set_ylabel('Scores', fontsize=12)
-        ax.set_title(f"Comparison of Classifier Before and After Post-Tuning the Decision Threshold - Future step {step}", fontsize=16, pad=20)
+        ax.set_title(f"Comparison of Classifier Before and After Post-Tuning the Decision Threshold - Future step {step}", fontsize=18, pad=20)
         ax.set_xticks(x)
-        ax.set_xticklabels(labels, rotation=45, ha='right', fontsize=10)
+        ax.set_xticklabels(labels, rotation=45, ha='right', fontsize=12)
         ax.legend(loc='best', fontsize=12)
         ax.grid(axis='y', linestyle='--', alpha=0.7)
 
@@ -181,7 +172,7 @@ class CNC():
         return np.array(x), np.array(y)
 
     def _sampling(self, x: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        fig, ax = plt.subplots(1, 2, figsize=(12, 7))
+        fig, ax = plt.subplots(1, 2, figsize=(14, 7))
         
         label_names = ['Non-Anomaly', 'Anomaly']
         colors = ['#ff9999', '#66b3ff']
@@ -209,7 +200,7 @@ class CNC():
 
         fig.legend(wedges_before, label_names, loc='lower center', fontsize=14, title='Classes', ncol=2)
         plt.suptitle(f'Impact of {self.args.sampler} on Class Distribution', fontsize=20, y=0.95)
-        plt.tight_layout(pad=3.0, rect=[0, 0, 1, 0.96])
+        plt.tight_layout(pad=2.0, rect=[0, 0, 1, 0.95])
         plt.show()
 
         return x_resampled, y_resampled
@@ -335,9 +326,9 @@ class CNC():
         axs[2].legend(loc="best", fontsize=12)
         axs[2].set_xlabel("Decision Threshold (Probability)", fontsize=12)
         axs[2].set_ylabel("Objective Score (Balanced Accuracy)", fontsize=12)
-        axs[2].set_title("Objective Score vs. Decision Threshold", fontsize=14)
+        axs[2].set_title("Objective score as a function of the decision threshold", fontsize=14)
         axs[2].grid(True, linestyle='--', alpha=0.7)
         
-        fig.suptitle(f"Evaluation of the {model_name} - Future step {i+1}", fontsize=16, y=1.02)
+        fig.suptitle(f"Comparison of the cut-off point for the vanilla and tuned {model_name} - Future step {i+1}", fontsize=18)
         plt.tight_layout()
         

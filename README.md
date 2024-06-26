@@ -15,7 +15,7 @@ This repository contains the code and data for a predictive maintenance system f
 
 ## Introduction
 
-Predictive maintenance involves using data analysis tools and techniques to detect anomalies in your operations and possible defects in equipment and processes so you can fix them before they result in failure. This project focuses on predictive maintenance for CNC machines, leveraging machine learning algorithms to predict failures based on historical data.
+Predictive maintenance involves using data analysis tools and techniques to detect anomalies in operations and possible defects in equipment and processes so you can fix them before they result in failure. This project focuses on predictive maintenance for CNC machines, leveraging machine learning algorithms to predict failures based on historical data.
 
 ## Installation
 
@@ -80,7 +80,7 @@ The dataset used in this project consists of historical data from CNC machines, 
 
 ## Usage
 
-To utilize the predictive maintenance system, follow the steps below to run the main Jupyter Notebook (`main.ipynb`), which orchestrates the entire workflow from data preprocessing to model evaluation and visualization.
+To use this project, follow these steps:
 
 1. Ensure that you have followed the installation instructions to set up your environment.
 
@@ -89,17 +89,28 @@ To utilize the predictive maintenance system, follow the steps below to run the 
     jupyter notebook main.ipynb
     ```
 
-3. The `main.ipynb` notebook contains the code to preprocess data, train the model, evaluate its performance, and visualize the results. The main steps involved are:
+3. Follow the steps in the `main.ipynb` notebook::
 
-    - **Initialize**: This involves setting up the necessary parameters (refer to the [Arguments](#arguments) section below).
-    - **Preprocess**: This step involves cleaning and preparing the data for model training.
-    - **Train**: The selected machine learning model is trained using the preprocessed data.
-    - **Evaluate**: The trained model is evaluated to determine its accuracy and effectiveness in predicting failures.
-    - **Visualize**: The results of the model's predictions are visualized.
-
+    - **Initialize**: Set up the necessary arguments (refer to the [Arguments](#arguments) section below) :
+        ```python
+        cnc = CNC(args)
+        ```
+    - **Preprocess**: Clean and prepare the data:
+        ```python
+        cnc.pre_process()
+        ```
+    - **Train**: Train the machine learning model:
+        ```python
+        cnc.train()
+        ```
+    - **Evaluate**: Assess model performance and visualize results:
+        ```python
+        cnc.evaluate()
+        ```
 
 ## Arguments
-The arguments for running the system are defined as follows:
+
+The arguments for running the scripts are defined as follows:
 
 | Argument         | Type   | Description                                                         | Example        |
 |------------------|--------|---------------------------------------------------------------------|----------------|
