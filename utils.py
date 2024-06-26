@@ -135,7 +135,7 @@ class CNC():
         n_classes = len(classes)
         n_metrics = len(metrics)
         
-        _, ax = plt.subplots(figsize=(16, 9))
+        _, ax = plt.subplots(figsize=(14, 8))
         width = 0.35
         x = np.arange(n_classes * n_metrics)
 
@@ -149,14 +149,23 @@ class CNC():
                 tuned_scores.append(tuned_report[cls][metric])
                 labels.append(f'{cls} - {metric}')
         
-        ax.bar(x - width/2, vanilla_scores, width, label='Vanilla', color='skyblue', edgecolor='black')
-        ax.bar(x + width/2, tuned_scores, width, label='Tuned', color='orange', edgecolor='black')
+        bars_vanilla =ax.bar(x - width/2, vanilla_scores, width, label='Before', color='skyblue', edgecolor='black')
+        bars_tuned = ax.bar(x + width/2, tuned_scores, width, label='After', color='orange', edgecolor='black')
         
-        ax.set_ylabel('Scores')
-        ax.set_title(f"Model Comparison Report - Step {step}")
+        for bar in bars_vanilla:
+            height = bar.get_height()
+            ax.annotate(f'{height:.2f}', xy=(bar.get_x() + bar.get_width() / 2, height),
+                        xytext=(0, 3), textcoords="offset points", ha='center', va='bottom', fontsize=10)
+        for bar in bars_tuned:
+            height = bar.get_height()
+            ax.annotate(f'{height:.2f}', xy=(bar.get_x() + bar.get_width() / 2, height),
+                        xytext=(0, 3), textcoords="offset points", ha='center', va='bottom', fontsize=10)
+        
+        ax.set_ylabel('Scores', fontsize=12)
+        ax.set_title(f"Comparison of Classifier Before and After Post-Tuning the Decision Threshold - Future step {step}", fontsize=16, pad=20)
         ax.set_xticks(x)
-        ax.set_xticklabels(labels, rotation=45, ha='right')
-        ax.legend(loc='best')
+        ax.set_xticklabels(labels, rotation=45, ha='right', fontsize=10)
+        ax.legend(loc='best', fontsize=12)
         ax.grid(axis='y', linestyle='--', alpha=0.7)
 
         plt.tight_layout()
@@ -172,22 +181,37 @@ class CNC():
         return np.array(x), np.array(y)
 
     def _sampling(self, x: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        _, ax = plt.subplots(1, 2, figsize=(12, 6))
-        labels, counts = np.unique(y, return_counts=True)
+        fig, ax = plt.subplots(1, 2, figsize=(12, 7))
+        
         label_names = ['Non-Anomaly', 'Anomaly']
-        colors = ['#ff9999','#66b3ff']
-        ax[0].pie(counts, labels=[f'{label_names[label]} ({count})' for label, count in zip(labels, counts)], autopct='%1.1f%%', startangle=90, colors=colors)
-        ax[0].set_title('Before')
+        colors = ['#ff9999', '#66b3ff']
+
+        counts = np.bincount(y)
+        wedges_before, _, _ = ax[0].pie(counts, 
+                                        autopct=lambda pct: f'{pct:.1f}%\n({int(pct/100.*sum(counts))})', 
+                                        startangle=90, 
+                                        colors=colors, 
+                                        textprops={'fontsize': 14})
+        ax[0].set_title('Before Sampling', fontsize=16)
+  
         sampler = self.sampler_map.get(self.args.sampler)
         if sampler is None:
             raise ValueError(f"Unknown sampling method: {self.args.sampler}")
         x_resampled, y_resampled = sampler.fit_resample(x, y)
-        labels_resampled, counts_resampled = np.unique(y_resampled, return_counts=True)
-        ax[1].pie(counts_resampled, labels=[f'{label_names[label]} ({count})' for label, count in zip(labels_resampled, counts_resampled)], autopct='%1.1f%%', startangle=90, colors=colors)
-        ax[1].set_title('After')
-        plt.suptitle(self.args.sampler, fontsize=16)
-        plt.tight_layout()
+        
+        counts_resampled = np.bincount(y_resampled)
+        ax[1].pie(counts_resampled, 
+                  autopct=lambda pct: f'{pct:.1f}%\n({int(pct/100.*sum(counts_resampled))})',
+                  startangle=90,
+                  colors=colors, 
+                  textprops={'fontsize': 14})
+        ax[1].set_title('After Sampling', fontsize=16)
+
+        fig.legend(wedges_before, label_names, loc='lower center', fontsize=14, title='Classes', ncol=2)
+        plt.suptitle(f'Impact of {self.args.sampler} on Class Distribution', fontsize=20, y=0.95)
+        plt.tight_layout(pad=3.0, rect=[0, 0, 1, 0.96])
         plt.show()
+
         return x_resampled, y_resampled
 
     def _split_data(self, x: np.ndarray, y: np.ndarray):
@@ -199,23 +223,29 @@ class CNC():
     def _plot_confusion_matrix(self, i: int):
         model_name = self.model_map[self.args.model]["name"]
         cm = confusion_matrix(self.y_test[i], self.y_preds[i])
-        plt.figure(figsize=(8, 6))
-        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', cbar=True, xticklabels=['Non-Anomaly', 'Anomaly'], yticklabels=['Non-Anomaly', 'Anomaly'])
-        plt.xlabel('Predicted', fontsize=14)
-        plt.ylabel('Actual', fontsize=14)
-        plt.title(f'Confusion Matrix of the {model_name} - Future step {i+1}', fontsize=16)
-        plt.xticks(fontsize=12)
-        plt.yticks(fontsize=12)
+        
+        plt.figure(figsize=(10, 8))
+        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', cbar=True, 
+                    xticklabels=['Non-Anomaly', 'Anomaly'], yticklabels=['Non-Anomaly', 'Anomaly'],
+                    annot_kws={"size": 14}, linewidths=1, linecolor='black')
+
+        plt.xlabel('Predicted', fontsize=16, labelpad=20)
+        plt.ylabel('Actual', fontsize=16, labelpad=20)
+        plt.title(f'Confusion Matrix of the {model_name} - Future step {i+1}', fontsize=18, pad=20)
+        plt.xticks(fontsize=14)
+        plt.yticks(fontsize=14)
         plt.tight_layout()
         
     def _plot_roc_pr_curves(self, i: int):
         pos_label, neg_label = True, False
         model_name = self.model_map[self.args.model]["name"]
+
         def fpr_score(y, y_pred, neg_label, pos_label):
             cm = confusion_matrix(y, y_pred, labels=[neg_label, pos_label])
             tn, fp, _, _ = cm.ravel()
             tnr = tn / (tn + fp)
             return 1 - tnr
+
         tpr_score = recall_score
         scoring = {
             "precision": make_scorer(precision_score, pos_label=pos_label),
@@ -223,15 +253,18 @@ class CNC():
             "fpr": make_scorer(fpr_score, neg_label=neg_label, pos_label=pos_label),
             "tpr": make_scorer(tpr_score, pos_label=pos_label),
         }
-        fig, axs = plt.subplots(nrows=1, ncols=3, figsize=(21, 6))
+
+        fig, axs = plt.subplots(nrows=1, ncols=3, figsize=(21, 7))
         linestyles = ("dashed", "dotted")
         markerstyles = ("o", ">")
         colors = ("tab:blue", "tab:orange")
         names = (f"Vanilla {model_name}", f"Tuned {model_name}")
+
         for idx, (est, linestyle, marker, color, name) in enumerate(
         zip((self.models[i], self.tuned_models[i]), linestyles, markerstyles, colors, names)
         ):
             decision_threshold = getattr(est, "best_threshold_", 0.5)
+    
             pr_display = PrecisionRecallDisplay.from_estimator(
                 est,
                 self.x_test,
@@ -250,6 +283,7 @@ class CNC():
                 color=color,
                 label=f"Cut-off point at probability of {decision_threshold:.2f}",
             )
+
             roc_display = RocCurveDisplay.from_estimator(
                 est,
                 self.x_test,
@@ -269,19 +303,26 @@ class CNC():
                 color=color,
                 label=f"Cut-off point at probability of {decision_threshold:.2f}",
             )
-        axs[0].fill_between(pr_display.recall, pr_display.precision, step='post', alpha=0.2, color="b", label=f"AP area")
-        axs[0].set_title("Precision-Recall curve")
-        axs[0].legend()
-        axs[0].grid(True)
-        axs[1].fill_between(roc_display.fpr, roc_display.tpr, alpha=0.2, color="b", label=f"AUC area")
-        axs[1].set_title("ROC curve")
-        axs[1].legend()
-        axs[1].grid(True)
-        
+
+        axs[0].fill_between(pr_display.recall, pr_display.precision, step='post', alpha=0.2, color="b")
+        axs[0].set_title("Precision-Recall curve", fontsize=14)
+        axs[0].legend(loc="best")
+        axs[0].grid(True, linestyle='--', alpha=0.7)
+        axs[0].set_xlabel("Recall", fontsize=12)
+        axs[0].set_ylabel("Precision", fontsize=12)
+
+        axs[1].fill_between(roc_display.fpr, roc_display.tpr, alpha=0.2, color="b")
+        axs[1].set_title("ROC Curve", fontsize=14)
+        axs[1].legend(loc="best")
+        axs[1].grid(True, linestyle='--', alpha=0.7)
+        axs[1].set_xlabel("False Positive Rate", fontsize=12)
+        axs[1].set_ylabel("True Positive Rate", fontsize=12)
+
         axs[2].plot(
-        self.tuned_models[i].cv_results_["thresholds"],
-        self.tuned_models[i].cv_results_["scores"],
-        color="tab:orange",
+            self.tuned_models[i].cv_results_["thresholds"],
+            self.tuned_models[i].cv_results_["scores"],
+            color="tab:orange",
+            linestyle='-',
         )
         axs[2].plot(
             self.tuned_models[i].best_threshold_,
@@ -289,13 +330,14 @@ class CNC():
             "o",
             markersize=10,
             color="tab:orange",
-            label=f"Optimal cut-off point for the business metric ({self.tuned_models[i].best_threshold_:.2f})",
+            label=f"Optimal cut-off point for the Balanced Accuracy ({self.tuned_models[i].best_threshold_:.2f})",
         )
-        axs[2].legend()
-        axs[2].set_xlabel("Decision threshold (probability)")
-        axs[2].set_ylabel("Objective score (using balanced accuracy)")
-        axs[2].set_title("Objective score as a function of the decision threshold")
-        axs[2].grid(True)
+        axs[2].legend(loc="best", fontsize=12)
+        axs[2].set_xlabel("Decision Threshold (Probability)", fontsize=12)
+        axs[2].set_ylabel("Objective Score (Balanced Accuracy)", fontsize=12)
+        axs[2].set_title("Objective Score vs. Decision Threshold", fontsize=14)
+        axs[2].grid(True, linestyle='--', alpha=0.7)
         
-        fig.suptitle(f"Evaluation of the {model_name} - Future step {i+1}")
+        fig.suptitle(f"Evaluation of the {model_name} - Future step {i+1}", fontsize=16, y=1.02)
+        plt.tight_layout()
         
