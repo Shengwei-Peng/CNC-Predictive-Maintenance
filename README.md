@@ -86,7 +86,7 @@ To use this project, follow these steps:
 
 2. Run the Streamlit application:
     ```bash
-    streamlit run app.py
+    streamlit run main.py
     ```
 
 3. Follow the instructions on the web interface:

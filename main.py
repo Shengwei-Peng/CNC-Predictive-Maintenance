@@ -1,7 +1,6 @@
 import streamlit as st
 from utils import CNC
 from types import SimpleNamespace
-import io
 
 def main():
     st.set_page_config(layout="wide", page_title="CNC Predictive Maintenance")
@@ -13,21 +12,23 @@ def main():
     with col1:
         st.header("⚙️ Configuration")
         file_path = st.text_input('📂 File Path', './data/data.csv')
-        model = st.selectbox('🛠️ Model', ['Logistic Regression', 
-                                       'Gaussian Naive Bayes', 
-                                       'K-Nearest Neighbors',
-                                       'Decision Tree',
-                                       'Random Forest',
-                                       'eXtreme Gradient Boosting',
-                                       ])
-        sampler = st.selectbox('📊 Sampler', ['None',
-                                           'SMOTE',
-                                           'ADASYN',
-                                           'BorderlineSMOTE',
-                                           'RandomOverSampler',
-                                           'RandomUnderSampler',
-                                           ])
-        future_steps = st.number_input('🔮 Future Steps', value=1, min_value=1, max_value=1200)
+        model = st.selectbox('🛠️ Model', [
+            'Logistic Regression', 
+            'Gaussian Naive Bayes', 
+            'K-Nearest Neighbors',
+            'Decision Tree',
+            'Random Forest',
+            'eXtreme Gradient Boosting',
+            ])
+        sampler = st.selectbox('📊 Sampler', [
+            'None',
+            'SMOTE',
+            'ADASYN',
+            'BorderlineSMOTE',
+            'RandomOverSampler',
+            'RandomUnderSampler',
+            ])
+        future_steps = st.number_input('🔮 Future Steps', value=1, min_value=1, max_value=10)
         window_size = st.number_input('🔢 Window Size', value=5, min_value=1, max_value=1200)
         test_size = st.number_input('📏 Test Size', value=200, min_value=1, max_value=1200)
         seed = st.number_input('🌱 Seed', value=0, min_value=0)
