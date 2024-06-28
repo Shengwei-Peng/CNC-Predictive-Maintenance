@@ -8,7 +8,7 @@ This repository contains the code and data for a predictive maintenance system f
 - [Installation](#installation)
 - [Data](#data)
 - [Usage](#usage)
-- [Arguments](#arguments)
+- [Configuration](#configuration)
 - [Contributing](#contributing)
 - [License](#license)
 - [Contact](#contact)
@@ -84,66 +84,32 @@ To use this project, follow these steps:
 
 1. Ensure that you have followed the installation instructions to set up your environment.
 
-2. Open the Jupyter Notebook:
+2. Run the Streamlit application:
     ```bash
-    jupyter notebook main.ipynb
+    streamlit run app.py
     ```
 
-3. Follow the steps in the `main.ipynb` notebook::
+3. Follow the instructions on the web interface:
 
-    - **Initialize**: Set up the necessary arguments (refer to the [Arguments](#arguments) section below) :
-        ```python
-        cnc = CNC(args)
-        ```
-    - **Preprocess**: Clean and prepare the data:
-        ```python
-        cnc.pre_process()
-        ```
-    - **Train**: Train the machine learning model:
-        ```python
-        cnc.train()
-        ```
-    - **Evaluate**: Assess model performance and visualize results:
-        ```python
-        cnc.evaluate()
-        ```
-
-## Arguments
-
-The arguments for running the scripts are defined as follows:
-
-| Argument         | Type   | Description                                                         | Example        |
-|------------------|--------|---------------------------------------------------------------------|----------------|
-| `file_path`      | str    | Path to the dataset file.                                           | `"./data.csv"` |
-| `model`          | str    | The machine learning model to be used for prediction.               | `"XGB"`         |
-| `sampler`        | str    | Sampling method to balance the dataset.                             | `"SMOTE"`      |
-| `future_steps`   | int    | Number of future steps to predict.                                  | `1`            |
-| `window_size`    | int    | Size of the sliding window for feature extraction.                  | `3 `           |
-| `test_size`      | int    | Number of samples to include in the test split.                     | `200`          |
-| `seed`           | int    | Random seed for reproducibility.                                    | `0`            |
+    - **Configuration**: Set up the necessary parameters in the configuration panel on the left side of the interface.
+    - **Execute All**: Click the `🚀 Execute All` button to run the entire pipeline, including preprocessing, training, and evaluation.
+    - **View Results**: The results, including various plots and evaluations, will be displayed on the right side of the interface.
 
 
-### Models
+## Configuration
 
-You can specify the desired model using the `model` parameter. The available models are:
+The configuration settings for running the scripts are defined as follows:
 
-- `LR`: Logistic Regression
-- `NB`: Gaussian Naive Bayes
-- `KNN`: K-Nearest Neighbors
-- `DT`: Decision Tree
-- `RF`: Random Forest
-- `XGB`: eXtreme Gradient Boosting
-
-### Sampler
-
-You can specify the sampling method using the `sampler` parameter. The available methods are:
-
-- `None`: No sampling applied.
-- `SMOTE`: Synthetic Minority Over-sampling Technique
-- `ADASYN`: Adaptive Synthetic Sampling
-- `BorderlineSMOTE`: Borderline Synthetic Minority Over-sampling Technique
-- `RandomOverSampler`: Random Over-Sampling
-- `RandomUnderSampler`: Random Under-Sampling
+| Configuration             | Description                                                                      |
+|---------------------------|----------------------------------------------------------------------------------|
+| **File Path**             | Path to the dataset file.                                                        |
+| **Model**                 | The machine learning model to be used for prediction.                            |
+| **Sampler**               | Sampling method to balance the dataset.                                          |
+| **Future Steps**          | Number of future steps to predict.                                               |
+| **Window Size**           | Size of the sliding window for feature extraction.                               |
+| **Test Size**             | Number of samples to include in the test split.                                  |
+| **Seed**                  | Random seed for reproducibility.                                                 |
+| **Correlation Threshold** | Correlation threshold for feature selection.                                  |
 
 
 ## Contributing

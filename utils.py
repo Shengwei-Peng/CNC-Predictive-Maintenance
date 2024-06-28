@@ -3,7 +3,6 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
-from tqdm import tqdm
 from typing import Tuple, List
 from types import SimpleNamespace
 from imblearn.over_sampling import SMOTE, ADASYN, RandomOverSampler, BorderlineSMOTE
@@ -36,30 +35,12 @@ class CNC():
         random.seed(self.args.seed)
         np.random.seed(self.args.seed)
         self.model_map = {
-            "LR": {
-                "name": "Logistic Regression",
-                "model": LogisticRegression()
-            },
-            "NB": {
-                "name": "Gaussian Naive Bayes",
-                "model": GaussianNB()
-            },
-            "KNN": {
-                "name": "K-Nearest Neighbors",
-                "model": KNeighborsClassifier()
-            },
-            "DT": {
-                "name": "Decision Tree",
-                "model": DecisionTreeClassifier(random_state=self.args.seed)
-            },
-            "RF": {
-                "name": "Random Forest",
-                "model": RandomForestClassifier(random_state=self.args.seed)
-            },
-            "XGB": {
-                "name": "eXtreme Gradient Boosting",
-                "model": XGBClassifier(random_state=self.args.seed)
-            },
+            "Logistic Regression": LogisticRegression(random_state=self.args.seed),
+            "Gaussian Naive Bayes":  GaussianNB(),
+            "K-Nearest Neighbors": KNeighborsClassifier(),
+            "Decision Tree": DecisionTreeClassifier(random_state=self.args.seed),
+            "Random Forest": RandomForestClassifier(random_state=self.args.seed),
+            "eXtreme Gradient Boosting": XGBClassifier(random_state=self.args.seed),
         }
         self.sampler_map = {
             "SMOTE": SMOTE(random_state=self.args.seed),
@@ -71,20 +52,21 @@ class CNC():
 
     def pre_process(self):
         self._load_data()
-        self._features_selection()
+        fig = self._features_selection()
         self._create_rolling_features()
         self._split_data()
+        return fig
 
     def train(self):
         self.models = []
         self.tuned_models = []
-        for i in tqdm(range(self.args.future_steps), desc="Training models"):
-            model = self.model_map[self.args.model]["model"]
+        for i in range(self.args.future_steps):
+            model = self.model_map[self.args.model]
             x, y = self.x_train, self.y_train[i]
             if model is None:
                 raise ValueError(f"Unknown model type: {self.args.model}")
-            if self.args.sampler is not None:
-                x, y = self._sampling(x, y)
+            if self.args.sampler is not None and self.args.sampler != "None":
+                x, y, fig = self._sampling(x, y)
             model.fit(x, y)
             self.models.append(model)
             tuned_model = TunedThresholdClassifierCV(
@@ -95,9 +77,13 @@ class CNC():
             )
             tuned_model.fit(x, y)
             self.tuned_models.append(tuned_model)
+            if self.args.sampler is not None and self.args.sampler != "None":
+                return fig
 
     def evaluate(self):
-        self.y_preds = []
+        self.vanilla_preds = []
+        self.tuned_preds = []
+        figs = []
         balanced_accuracy_scorer = get_scorer("balanced_accuracy")
         for i in range(self.args.future_steps):
             
@@ -108,14 +94,14 @@ class CNC():
             tuned_pred = self.tuned_models[i].predict(self.x_test)
             tuned_report = classification_report(self.y_test[i], tuned_pred, output_dict=True, target_names=['Non-Anomaly', 'Anomaly'])
             tuned_report["balanced_accuracy"] = balanced_accuracy_scorer(self.tuned_models[i], self.x_test, self.y_test[i])
+
+            self.vanilla_preds.append(vanilla_pred)
+            self.tuned_preds.append(tuned_pred)
             
-            model = self.tuned_models[i] if tuned_report["balanced_accuracy"] > vanilla_report["balanced_accuracy"] else self.models[i]
-            y_pred = model.predict(self.x_test)
-            self.y_preds.append(y_pred)
-            
-            self._visualize_classification_report(i + 1, vanilla_report, tuned_report)
-            self._plot_roc_pr_curves(i)
-            self._plot_confusion_matrix(i)
+            figs.append(self._visualize_classification_report(i + 1, vanilla_report, tuned_report))
+            figs.append(self._plot_roc_pr_curves(i))
+            figs.append(self._plot_confusion_matrix(i))
+        return figs
 
     def _load_data(self):
         data = pd.read_csv(self.args.file_path)
@@ -123,7 +109,7 @@ class CNC():
         self.x = data.drop(columns=['Anomaly'])
         self.y = data['Anomaly']
 
-    def _features_selection(self, correlation_threshold: float = 0.9):
+    def _features_selection(self):
         
         correlation_matrix = self.x.corr(numeric_only=True)
 
@@ -131,7 +117,7 @@ class CNC():
             (correlation_matrix.columns[i], correlation_matrix.columns[j], correlation_matrix.iloc[i, j])
             for i in range(len(correlation_matrix.columns))
             for j in range(i + 1, len(correlation_matrix.columns))
-            if abs(correlation_matrix.iloc[i, j]) > correlation_threshold
+            if abs(correlation_matrix.iloc[i, j]) > self.args.corr_threshold
         ]
         features_to_remove = {feature2 for _, feature2, _ in high_corr_pairs}
         
@@ -140,7 +126,7 @@ class CNC():
         filtered_correlation_matrix = self.x.corr(numeric_only=True)
 
         sns.set_style("whitegrid")
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10))
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10), dpi=400)
         fig.suptitle('Features Selection Before and After', fontsize=22, fontweight='bold')
 
         sns.heatmap(correlation_matrix, annot=True, fmt=".2f", cmap='coolwarm', cbar=True, ax=ax1, annot_kws={"size": 10})
@@ -154,11 +140,11 @@ class CNC():
         ax2.tick_params(axis='y', rotation=0, labelsize=12)
 
         plt.tight_layout()
-        plt.show()
+        return fig
 
     def _create_rolling_features(self):
         x, y = [], []
-        for i in tqdm(range(len(self.y) - self.args.window_size - self.args.future_steps + 1), desc="Data preprocessing"):
+        for i in range(len(self.y) - self.args.window_size - self.args.future_steps + 1):
             features = self.x.iloc[i:i + self.args.window_size].values.flatten()
             labels = self.y[i + self.args.window_size:i + self.args.window_size + self.args.future_steps].values
             x.append(features)
@@ -173,7 +159,7 @@ class CNC():
         self.y_test = [y_splits[i] for i in range(1, len(y_splits), 2)]
 
     def _sampling(self, x: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        fig, ax = plt.subplots(1, 2, figsize=(14, 7))
+        fig, ax = plt.subplots(1, 2, figsize=(14, 7), dpi=400)
         
         label_names = ['Non-Anomaly', 'Anomaly']
         colors = ['#ff9999', '#66b3ff']
@@ -202,13 +188,12 @@ class CNC():
         fig.legend(wedges_before, label_names, loc='lower center', fontsize=14, title='Classes', ncol=2)
         plt.suptitle(f'Impact of {self.args.sampler} on Class Distribution', fontsize=20, y=0.95)
         plt.tight_layout(pad=2.0, rect=[0, 0, 1, 0.95])
-        plt.show()
 
-        return x_resampled, y_resampled
+        return x_resampled, y_resampled, fig
 
     def _visualize_classification_report(self, step: int, vanilla_report: dict, tuned_report: dict):
         classes = list(vanilla_report.keys())
-        _, ax = plt.subplots(figsize=(20, 8))
+        fig, ax = plt.subplots(figsize=(20, 8), dpi=400)
         width = 0.35
 
         vanilla_scores = []
@@ -248,11 +233,11 @@ class CNC():
         ax.grid(axis='y', linestyle='--', alpha=0.7)
 
         plt.tight_layout()
-        plt.show()
+        return fig
 
     def _plot_roc_pr_curves(self, i: int):
         pos_label, neg_label = True, False
-        model_name = self.model_map[self.args.model]["name"]
+        model_name = self.args.model
 
         def fpr_score(y, y_pred, neg_label, pos_label):
             cm = confusion_matrix(y, y_pred, labels=[neg_label, pos_label])
@@ -268,7 +253,7 @@ class CNC():
             "tpr": make_scorer(tpr_score, pos_label=pos_label),
         }
 
-        fig, axs = plt.subplots(nrows=1, ncols=3, figsize=(21, 7))
+        fig, axs = plt.subplots(nrows=1, ncols=3, figsize=(21, 7), dpi=400)
         linestyles = ("dashed", "dotted")
         markerstyles = ("o", ">")
         colors = ("tab:blue", "tab:orange")
@@ -352,21 +337,36 @@ class CNC():
         axs[2].set_title("Objective score as a function of the decision threshold", fontsize=14)
         axs[2].grid(True, linestyle='--', alpha=0.7)
         
-        fig.suptitle(f"Comparison of the cut-off point for the vanilla and tuned {model_name} - Future step {i+1}", fontsize=18)
+        fig.suptitle(f"Comparison of the cut-off point for the vanilla and tuned {model_name} - Future step {i+1}", fontsize=20)
         plt.tight_layout()
+        return fig
 
     def _plot_confusion_matrix(self, i: int):
-        model_name = self.model_map[self.args.model]["name"]
-        cm = confusion_matrix(self.y_test[i], self.y_preds[i])
+        vanilla_cm = confusion_matrix(self.y_test[i], self.vanilla_preds[i])
+        tuned_cm = confusion_matrix(self.y_test[i], self.tuned_preds[i])
         
-        plt.figure(figsize=(10, 8))
-        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', cbar=True, 
-                    xticklabels=['Non-Anomaly', 'Anomaly'], yticklabels=['Non-Anomaly', 'Anomaly'],
-                    annot_kws={"size": 14}, linewidths=1, linecolor='black')
+        fig, ax = plt.subplots(1, 2, figsize=(20, 9), dpi=400)
+        
+        sns.heatmap(vanilla_cm, annot=True, fmt='d', cmap='Blues', cbar=True, 
+                xticklabels=['Non-Anomaly', 'Anomaly'], yticklabels=['Non-Anomaly', 'Anomaly'],
+                annot_kws={"size": 14}, linewidths=1, linecolor='black', ax=ax[0])
 
-        plt.xlabel('Predicted', fontsize=16, labelpad=20)
-        plt.ylabel('Actual', fontsize=16, labelpad=20)
-        plt.title(f'Confusion Matrix of the {model_name} - Future step {i+1}', fontsize=18, pad=20)
-        plt.xticks(fontsize=14)
-        plt.yticks(fontsize=14)
-        plt.tight_layout()
+        ax[0].set_xlabel('Predicted', fontsize=16, labelpad=20)
+        ax[0].set_ylabel('Actual', fontsize=16, labelpad=20)
+        ax[0].set_title(f'Before', fontsize=18, pad=20)
+        ax[0].tick_params(axis='x', labelsize=14)
+        ax[0].tick_params(axis='y', labelsize=14)
+
+        sns.heatmap(tuned_cm, annot=True, fmt='d', cmap='Blues', cbar=True, 
+                    xticklabels=['Non-Anomaly', 'Anomaly'], yticklabels=['Non-Anomaly', 'Anomaly'],
+                    annot_kws={"size": 14}, linewidths=1, linecolor='black', ax=ax[1])
+
+        ax[1].set_xlabel('Predicted', fontsize=16, labelpad=20)
+        ax[1].set_ylabel('Actual', fontsize=16, labelpad=20)
+        ax[1].set_title(f'After', fontsize=18, pad=20)
+        ax[1].tick_params(axis='x', labelsize=14)
+        ax[1].tick_params(axis='y', labelsize=14)
+
+        fig.suptitle(f'Confusion Matrix of the Before and After Post-Tuning the Decision Threshold - Future step {i+1}', fontsize=20)
+        plt.tight_layout(rect=[0, 0, 1, 0.96])
+        return fig
