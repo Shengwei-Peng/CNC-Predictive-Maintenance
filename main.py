@@ -1,3 +1,4 @@
+import pandas as pd
 import streamlit as st
 from utils import CNC
 from types import SimpleNamespace
@@ -11,7 +12,12 @@ def main():
 
     with col1:
         st.header("⚙️ Configuration")
-        file_path = st.text_input('📂 File Path', './data/data.csv')
+        uploaded_file = st.file_uploader('📂 Upload File', type=['csv'], help='Upload the dataset file in CSV format.')
+        if uploaded_file is not None:
+            data = pd.read_csv(uploaded_file)
+        else:
+            st.warning("Please upload a dataset file.")
+            return
         model = st.selectbox('🛠️ Model', [
             'Logistic Regression', 
             'Gaussian Naive Bayes', 
@@ -35,7 +41,7 @@ def main():
         corr_threshold = st.slider('📈 Correlation Threshold', 0.0, 1.0, 0.9)
 
         args = SimpleNamespace(
-            file_path=file_path,
+            data=data,
             model=model,
             sampler=sampler,
             future_steps=future_steps,

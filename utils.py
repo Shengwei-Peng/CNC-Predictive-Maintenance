@@ -104,7 +104,7 @@ class CNC():
         return figs
 
     def _load_data(self):
-        data = pd.read_csv(self.args.file_path)
+        data = self.args.data
         data['time'] = pd.to_datetime(data['time']).astype(int) // 10**9
         self.x = data.drop(columns=['Anomaly'])
         self.y = data['Anomaly']
