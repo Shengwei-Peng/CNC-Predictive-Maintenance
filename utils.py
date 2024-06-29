@@ -105,13 +105,13 @@ class CNC():
 
     def _load_data(self):
         data = self.args.data
-        data['time'] = pd.to_datetime(data['time']).astype(int) // 10**9
+        data['time'] = pd.to_datetime(data['time']).astype('int64') // 10**9
         self.x = data.drop(columns=['Anomaly'])
         self.y = data['Anomaly']
 
     def _features_selection(self):
         
-        correlation_matrix = self.x.corr(numeric_only=True)
+        correlation_matrix = self.x.corr()
 
         high_corr_pairs = [
             (correlation_matrix.columns[i], correlation_matrix.columns[j], correlation_matrix.iloc[i, j])
@@ -123,7 +123,7 @@ class CNC():
         
         remaining_features = [feature for feature in self.x.columns if feature not in features_to_remove]
         self.x = self.x[remaining_features]
-        filtered_correlation_matrix = self.x.corr(numeric_only=True)
+        filtered_correlation_matrix = self.x.corr()
 
         sns.set_style("whitegrid")
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 10), dpi=400)

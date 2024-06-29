@@ -82,19 +82,29 @@ The dataset used in this project consists of historical data from CNC machines, 
 
 To use this project, follow these steps:
 
-1. Ensure that you have followed the installation instructions to set up your environment.
+1. **Set Up Your Environment**:
+    Ensure you have followed the installation instructions to set up your environment.
 
-2. Run the Streamlit application:
+2. **Run the Streamlit Application**:
+    Open a terminal and run the following command to start the Streamlit application:
     ```bash
     streamlit run main.py
     ```
 
-3. Follow the instructions on the web interface:
+3. **Interact with the Web Interface**:
+    Follow the instructions on the web interface to use the application:
 
-    - **Configuration**: Set up the necessary parameters in the configuration panel on the left side of the interface.
-    - **Execute All**: Click the `🚀 Execute All` button to run the entire pipeline, including preprocessing, training, and evaluation.
-    - **View Results**: The results, including various plots and evaluations, will be displayed on the right side of the interface.
+    - **Upload Your Dataset**:
+        Upload your dataset file in CSV format using the file uploader in the configuration panel on the left side of the interface.
 
+    - **Configure Parameters**:
+        Set up the necessary parameters in the configuration panel on the left side of the interface.
+
+    - **Execute the Pipeline**:
+        Click the `🚀 Execute All` button to run the entire pipeline, including preprocessing, training, and evaluation.
+
+    - **View the Results**:
+        The results, including various plots and evaluations, will be displayed on the right side of the interface.
 
 ## Configuration
 
@@ -102,14 +112,13 @@ The configuration settings for running the scripts are defined as follows:
 
 | Configuration             | Description                                                                      |
 |---------------------------|----------------------------------------------------------------------------------|
-| **File Path**             | Path to the dataset file.                                                        |
 | **Model**                 | The machine learning model to be used for prediction.                            |
 | **Sampler**               | Sampling method to balance the dataset.                                          |
 | **Future Steps**          | Number of future steps to predict.                                               |
 | **Window Size**           | Size of the sliding window for feature extraction.                               |
 | **Test Size**             | Number of samples to include in the test split.                                  |
 | **Seed**                  | Random seed for reproducibility.                                                 |
-| **Correlation Threshold** | Correlation threshold for feature selection.                                  |
+| **Correlation Threshold** | Correlation threshold for feature selection.                                     |
 
 
 ## Contributing
