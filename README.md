@@ -110,15 +110,16 @@ To use this project, follow these steps:
 
 The configuration settings for running the scripts are defined as follows:
 
-| Configuration             | Description                                                                      |
-|---------------------------|----------------------------------------------------------------------------------|
-| **Model**                 | The machine learning model to be used for prediction.                            |
-| **Sampler**               | Sampling method to balance the dataset.                                          |
-| **Future Steps**          | Number of future steps to predict.                                               |
-| **Window Size**           | Size of the sliding window for feature extraction.                               |
-| **Test Size**             | Number of samples to include in the test split.                                  |
-| **Seed**                  | Random seed for reproducibility.                                                 |
-| **Correlation Threshold** | Correlation threshold for feature selection.                                     |
+| Configuration             | Description                                                                                            |
+|---------------------------|--------------------------------------------------------------------------------------------------------|
+| **Model**                 | The machine learning model to be used for prediction.                                                  |
+| **Sampler**               | Sampling method to balance the dataset.                                                                |
+| **Sampling Strategy**     | Desired ratio of minority to majority class samples after resampling, expressed as $N_{min} / N_{max}$.|
+| **Future Steps**          | Number of future steps to predict.                                                                     |
+| **Window Size**           | Size of the sliding window for feature extraction.                                                     |
+| **Test Size**             | Number of samples to include in the test split.                                                        |
+| **Seed**                  | Random seed for reproducibility.                                                                       |
+| **Correlation Threshold** | Correlation threshold for feature selection.                                                           |
 
 
 ## Contributing

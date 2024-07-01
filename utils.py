@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from imblearn.over_sampling import SMOTE, ADASYN, RandomOverSampler, BorderlineSMOTE
 from imblearn.under_sampling import RandomUnderSampler
 from xgboost import XGBClassifier
+from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
@@ -43,11 +44,11 @@ class CNC():
             "eXtreme Gradient Boosting": XGBClassifier(random_state=self.args.seed),
         }
         self.sampler_map = {
-            "SMOTE": SMOTE(random_state=self.args.seed),
-            "ADASYN": ADASYN(random_state=self.args.seed),
-            "BorderlineSMOTE": BorderlineSMOTE(random_state=self.args.seed),
-            "RandomOverSampler": RandomOverSampler(random_state=self.args.seed),
-            "RandomUnderSampler": RandomUnderSampler(random_state=self.args.seed),
+            "SMOTE": SMOTE(random_state=self.args.seed, sampling_strategy=self.args.sampling_strategy),
+            "ADASYN": ADASYN(random_state=self.args.seed, sampling_strategy=self.args.sampling_strategy),
+            "BorderlineSMOTE": BorderlineSMOTE(random_state=self.args.seed, sampling_strategy=self.args.sampling_strategy),
+            "RandomOverSampler": RandomOverSampler(random_state=self.args.seed, sampling_strategy=self.args.sampling_strategy),
+            "RandomUnderSampler": RandomUnderSampler(random_state=self.args.seed, sampling_strategy=self.args.sampling_strategy),
         }
 
     def pre_process(self):
@@ -63,10 +64,9 @@ class CNC():
         for i in range(self.args.future_steps):
             model = self.model_map[self.args.model]
             x, y = self.x_train, self.y_train[i]
+            x, y, figs = self._sampling(x, y)
             if model is None:
                 raise ValueError(f"Unknown model type: {self.args.model}")
-            if self.args.sampler is not None and self.args.sampler != "None":
-                x, y, fig = self._sampling(x, y)
             model.fit(x, y)
             self.models.append(model)
             tuned_model = TunedThresholdClassifierCV(
@@ -77,8 +77,7 @@ class CNC():
             )
             tuned_model.fit(x, y)
             self.tuned_models.append(tuned_model)
-            if self.args.sampler is not None and self.args.sampler != "None":
-                return fig
+            return figs
 
     def evaluate(self):
         self.vanilla_preds = []
@@ -159,37 +158,76 @@ class CNC():
         self.y_test = [y_splits[i] for i in range(1, len(y_splits), 2)]
 
     def _sampling(self, x: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        fig, ax = plt.subplots(1, 2, figsize=(14, 7), dpi=400)
-        
+        if self.args.sampler != "None":
+            sampler = self.sampler_map.get(self.args.sampler)
+            x_res, y_res = sampler.fit_resample(x, y)
+            figs = self._visualize_sampling(x, y, x_res, y_res)
+        else:
+            x_res, y_res, figs = x, y, None
+        return x_res, y_res, figs
+
+    def _visualize_sampling(self, x: np.ndarray, y: np.ndarray, x_res: np.ndarray, y_res: np.ndarray):
+        fig_distribute, ax_distribute = plt.subplots(1, 2, figsize=(16, 9), dpi=400)
         label_names = ['Non-Anomaly', 'Anomaly']
         colors = ['#ff9999', '#66b3ff']
-
         counts = np.bincount(y)
-        wedges_before, _, _ = ax[0].pie(counts, 
-                                        autopct=lambda pct: f'{pct:.1f}%\n({int(pct/100.*sum(counts))})', 
-                                        startangle=90, 
-                                        colors=colors, 
-                                        textprops={'fontsize': 14})
-        ax[0].set_title('Before Sampling', fontsize=16)
-  
-        sampler = self.sampler_map.get(self.args.sampler)
-        if sampler is None:
-            raise ValueError(f"Unknown sampling method: {self.args.sampler}")
-        x_resampled, y_resampled = sampler.fit_resample(x, y)
-        
-        counts_resampled = np.bincount(y_resampled)
-        ax[1].pie(counts_resampled, 
-                  autopct=lambda pct: f'{pct:.1f}%\n({int(pct/100.*sum(counts_resampled))})',
-                  startangle=90,
-                  colors=colors, 
-                  textprops={'fontsize': 14})
-        ax[1].set_title('After Sampling', fontsize=16)
+        wedges_before, _, _ = ax_distribute[0].pie(
+            counts, 
+            autopct=lambda pct: f'{pct:.1f}%\n({int(pct/100.*sum(counts))})', 
+            startangle=90, 
+            colors=colors, 
+            textprops={'fontsize': 14}
+        )
+        ax_distribute[0].set_title('Before Sampling', fontsize=16)
+        counts_resampled = np.bincount(y_res)
+        ax_distribute[1].pie(
+            counts_resampled,
+            autopct=lambda pct: f'{pct:.1f}%\n({int(pct/100.*sum(counts_resampled))})',
+            startangle=90,
+            colors=colors, 
+            textprops={'fontsize': 14}
+        )
+        ax_distribute[1].set_title('After Sampling', fontsize=16)
 
-        fig.legend(wedges_before, label_names, loc='lower center', fontsize=14, title='Classes', ncol=2)
+        fig_distribute.legend(wedges_before, label_names, loc='lower center', fontsize=14, title='Classes', ncol=2)
         plt.suptitle(f'Impact of {self.args.sampler} on Class Distribution', fontsize=20, y=0.95)
         plt.tight_layout(pad=2.0, rect=[0, 0, 1, 0.95])
+        
+        pca = PCA(n_components=2)
+        X_pca = pca.fit_transform(x)
+        X_res_pca = pca.transform(x_res)
 
-        return x_resampled, y_resampled, fig
+        fig_pca, ax_pca = plt.subplots(1, 2, figsize=(16, 9), dpi=400)
+        
+        ax_pca[0].scatter(
+            X_pca[:, 0], X_pca[:, 1], c='blue', alpha=1, edgecolor='w', s=60, marker='o', label='Original'
+        )
+        
+        ax_pca[0].set_title('Before Sampling', fontsize=16, color='black')
+        ax_pca[0].set_xlabel('PCA Component 1', fontsize=14)
+        ax_pca[0].set_ylabel('PCA Component 2', fontsize=14)
+        
+        ax_pca[1].scatter(
+            X_pca[:, 0], X_pca[:, 1], c='blue', alpha=1, edgecolor='w', s=60, marker='o', label='Original'
+        )
+        ax_pca[1].scatter(
+            X_res_pca[:, 0], X_res_pca[:, 1], c='red', alpha=0.5, edgecolor='k', s=30, marker='x', label='Resampled'
+        )
+        ax_pca[1].set_title('After Sampling', fontsize=16, color='black')
+        ax_pca[1].set_xlabel('PCA Component 1', fontsize=14)
+        ax_pca[1].set_ylabel('PCA Component 2', fontsize=14)
+        
+        for ax in ax_pca:
+            ax.grid(True, linestyle='--', alpha=0.7)
+            ax.set_facecolor('#f5f5f5')
+        
+        handles, labels = ax_pca[1].get_legend_handles_labels()
+        fig_pca.legend(handles, labels, loc='upper right', fontsize=14, ncol=2)
+        
+        plt.tight_layout(pad=2.0)
+        fig_pca.suptitle(f'PCA Visualization of Original and {self.args.sampler} Data', fontsize=20, y=1.05)
+        
+        return [fig_distribute, fig_pca]
 
     def _visualize_classification_report(self, step: int, vanilla_report: dict, tuned_report: dict):
         classes = list(vanilla_report.keys())

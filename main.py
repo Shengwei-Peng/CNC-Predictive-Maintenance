@@ -34,6 +34,10 @@ def main():
             'RandomOverSampler',
             'RandomUnderSampler',
             ])
+        if sampler != 'None':
+            sampling_strategy = st.slider('📉 Sampling Strategy', 0.0, 1.0, 1.0)
+        else:
+            sampling_strategy = None
         future_steps = st.number_input('🔮 Future Steps', value=1, min_value=1, max_value=10)
         window_size = st.number_input('🔢 Window Size', value=5, min_value=1, max_value=1200)
         test_size = st.number_input('📏 Test Size', value=200, min_value=1, max_value=1200)
@@ -44,6 +48,7 @@ def main():
             data=data,
             model=model,
             sampler=sampler,
+            sampling_strategy=sampling_strategy,
             future_steps=future_steps,
             window_size=window_size,
             test_size=test_size,
@@ -63,11 +68,12 @@ def main():
             with col2:
                 st.pyplot(fig)
 
-            fig = cnc.train()
+            figs = cnc.train()
             st.success("Training done. ✅")
-            if fig is not None:
+            if figs is not None:
                 with col2:
-                    st.pyplot(fig)
+                    for fig in figs:
+                        st.pyplot(fig)
 
             figs = cnc.evaluate()
             st.success("Evaluation done. ✅")
