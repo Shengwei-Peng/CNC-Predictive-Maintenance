@@ -211,7 +211,7 @@ class CNC():
             X_pca[:, 0], X_pca[:, 1], c='blue', alpha=1, edgecolor='w', s=60, marker='o', label='Original'
         )
         ax_pca[1].scatter(
-            X_res_pca[:, 0], X_res_pca[:, 1], c='red', alpha=0.5, edgecolor='k', s=30, marker='x', label='Resampled'
+            X_res_pca[:, 0], X_res_pca[:, 1], c='red', alpha=0.8, edgecolor='k', s=30, marker='x', label='Resampled'
         )
         ax_pca[1].set_title('After Sampling', fontsize=16, color='black')
         ax_pca[1].set_xlabel('PCA Component 1', fontsize=14)
