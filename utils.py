@@ -5,8 +5,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from typing import Tuple, List
 from types import SimpleNamespace
-from imblearn.over_sampling import SMOTE, ADASYN, RandomOverSampler, BorderlineSMOTE
-from imblearn.under_sampling import RandomUnderSampler
+from imblearn.over_sampling import SMOTE, ADASYN, RandomOverSampler, BorderlineSMOTE, SVMSMOTE
 from xgboost import XGBClassifier
 from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split
@@ -44,11 +43,11 @@ class CNC():
             "eXtreme Gradient Boosting": XGBClassifier(random_state=self.args.seed),
         }
         self.sampler_map = {
+            "RandomOverSampler": RandomOverSampler(random_state=self.args.seed, sampling_strategy=self.args.sampling_strategy),
             "SMOTE": SMOTE(random_state=self.args.seed, sampling_strategy=self.args.sampling_strategy),
             "ADASYN": ADASYN(random_state=self.args.seed, sampling_strategy=self.args.sampling_strategy),
             "BorderlineSMOTE": BorderlineSMOTE(random_state=self.args.seed, sampling_strategy=self.args.sampling_strategy),
-            "RandomOverSampler": RandomOverSampler(random_state=self.args.seed, sampling_strategy=self.args.sampling_strategy),
-            "RandomUnderSampler": RandomUnderSampler(random_state=self.args.seed, sampling_strategy=self.args.sampling_strategy),
+            "SVMSMOTE": SVMSMOTE(random_state=self.args.seed, sampling_strategy=self.args.sampling_strategy),
         }
 
     def pre_process(self):
@@ -77,7 +76,7 @@ class CNC():
             )
             tuned_model.fit(x, y)
             self.tuned_models.append(tuned_model)
-            return figs
+        return figs
 
     def evaluate(self):
         self.vanilla_preds = []
@@ -159,6 +158,10 @@ class CNC():
 
     def _sampling(self, x: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         if self.args.sampler != "None":
+            original_counts = np.bincount(y)
+            original_counts = np.bincount(y)
+            majority_class = np.argmax(original_counts)
+            self.args.sampling_strategy[majority_class] = max(self.args.sampling_strategy[majority_class], original_counts[majority_class])
             sampler = self.sampler_map.get(self.args.sampler)
             x_res, y_res = sampler.fit_resample(x, y)
             figs = self._visualize_sampling(x, y, x_res, y_res)

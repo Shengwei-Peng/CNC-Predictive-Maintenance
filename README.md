@@ -114,7 +114,7 @@ The configuration settings for running the scripts are defined as follows:
 | ------------------------- |:------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Model**                 | The machine learning model to be used for prediction.                                                                                                              |
 | **Sampler**               | Sampling method to balance the dataset.                                                                                                                            |
-| **Sampling Strategy**     | Desired ratio of minority to majority class samples after resampling, expressed as $N_{minority} / N_{majority}$.                                                  |
+| **Sampling Strategy**     | Desired number of samples for each class after resampling. You can specify the exact number of samples for non-anomalous and anomalous classes.            |
 | **Future Steps**          | Number of future steps to predict. For example, if set to 3, the model will predict steps $K$, $K+1$, and $K+2$.                                                   |
 | **Window Size**           | Size of the sliding window for feature extraction. For example, a window size of 3 means using the past 3 time steps $K-3$, $K-2$, $K-1$ to predict the next step. |
 | **Test Size**             | Number of samples to include in the test split. This determines the amount of data reserved for testing the model.                                                 |

@@ -28,18 +28,21 @@ def main():
             ])
         sampler = st.selectbox('📊 Sampler', [
             'None',
+            'RandomOverSampler',
             'SMOTE',
             'ADASYN',
             'BorderlineSMOTE',
-            'RandomOverSampler',
-            'RandomUnderSampler',
+            'SVMSMOTE',
             ])
         if sampler != 'None':
-            sampling_strategy = st.slider('📉 Sampling Strategy', 0.0, 1.0, 1.0)
+            st.markdown("#### 🔢 Sampling Strategy")
+            non_anomaly_num = st.number_input('0️⃣ Non-Anomaly', value=1000, min_value=1)
+            anomaly_num = st.number_input('1️⃣ Anomaly', value=1000, min_value=1)
+            sampling_strategy = {0: non_anomaly_num, 1: anomaly_num}
         else:
             sampling_strategy = None
         future_steps = st.number_input('🔮 Future Steps', value=1, min_value=1, max_value=10)
-        window_size = st.number_input('🔢 Window Size', value=5, min_value=1, max_value=1200)
+        window_size = st.number_input('⏳ Window Size', value=5, min_value=1, max_value=1200)
         test_size = st.number_input('📏 Test Size', value=200, min_value=1, max_value=1200)
         seed = st.number_input('🌱 Seed', value=0, min_value=0)
         corr_threshold = st.slider('📈 Correlation Threshold', 0.0, 1.0, 0.9)
