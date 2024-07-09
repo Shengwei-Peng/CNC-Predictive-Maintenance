@@ -45,7 +45,9 @@ def main():
         window_size = st.number_input('⏳ Window Size', value=5, min_value=1, max_value=1200)
         test_size = st.number_input('📏 Test Size', value=200, min_value=1, max_value=1200)
         seed = st.number_input('🌱 Seed', value=0, min_value=0)
-        corr_threshold = st.slider('📈 Correlation Threshold', 0.0, 1.0, 0.9)
+        corr_upper_threshold = st.slider('📈 Correlation Upper Threshold', 0.0, 1.0, 0.9)
+        corr_lower_threshold = st.slider('📉 Correlation Lower Threshold', 0.0, 1.0, 0.1)
+
 
         args = SimpleNamespace(
             data=data,
@@ -56,7 +58,8 @@ def main():
             window_size=window_size,
             test_size=test_size,
             seed=seed,
-            corr_threshold=corr_threshold,
+            corr_upper_threshold=corr_upper_threshold,
+            corr_lower_threshold=corr_lower_threshold,
         )
 
         cnc = CNC(args)

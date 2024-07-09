@@ -115,8 +115,9 @@ class CNC():
             (correlation_matrix.columns[i], correlation_matrix.columns[j], correlation_matrix.iloc[i, j])
             for i in range(len(correlation_matrix.columns))
             for j in range(i + 1, len(correlation_matrix.columns))
-            if abs(correlation_matrix.iloc[i, j]) > self.args.corr_threshold
+            if abs(correlation_matrix.iloc[i, j]) > self.args.corr_upper_threshold or abs(correlation_matrix.iloc[i, j]) < self.args.corr_lower_threshold
         ]
+        
         features_to_remove = {feature2 for _, feature2, _ in high_corr_pairs}
         
         remaining_features = [feature for feature in self.x.columns if feature not in features_to_remove]
