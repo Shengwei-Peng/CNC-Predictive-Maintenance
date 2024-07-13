@@ -23,7 +23,7 @@ To run this project locally, follow these steps:
 
 1. Clone the repository:
     ```bash
-    git clone https://github.com/Shengwei0516/CNC-Predictive-Maintenance.git
+    git clone https://github.com/Shengwei-Peng/CNC-Predictive-Maintenance.git
     cd CNC-Predictive-Maintenance
     ```
 
